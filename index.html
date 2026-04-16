@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>IntelHub: Unified Intelligence Grid</title>
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #000; font-family: 'Segoe UI', sans-serif; }
+        #cesiumContainer { width: 100%; height: 100vh; margin: 0; padding: 0; overflow: hidden; }
+
+        #ui-panel {
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            background: rgba(10, 14, 22, 0.93);
+            color: white; padding: 18px;
+            border-radius: 10px;
+            border: 1px solid #0078d4;
+            width: 280px;
+            box-shadow: 0 4px 24px rgba(0,120,212,0.25);
+        }
+
+        h3 {
+            margin: 0 0 14px 0; color: #0af;
+            border-bottom: 1px solid #1a3a5c;
+            padding-bottom: 8px; font-size: 1em;
+            letter-spacing: 1px; text-transform: uppercase;
+        }
+
+        label { display: block; font-size: 0.75em; color: #7ab; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        select, input[type="number"], input[type="date"] {
+            width: 100%; background: #111c2e; color: #e0f0ff;
+            border: 1px solid #1a4a7a; padding: 7px 10px;
+            border-radius: 5px; margin-bottom: 12px; font-size: 0.85em;
+        }
+        select:focus, input:focus { outline: none; border-color: #0af; }
+
+        .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        button {
+            flex: 1; background: #0078d4; color: white; border: none;
+            padding: 9px; cursor: pointer; border-radius: 5px;
+            font-weight: bold; font-size: 0.82em; transition: background 0.2s;
+        }
+        button:hover { background: #005a9e; }
+        button.secondary { background: #1a3a5c; }
+        button.secondary:hover { background: #0d2540; }
+
+        .status-row { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+        .status { font-size: 0.72em; font-weight: bold; }
+
+        /* Stats grid */
+        .stats-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 6px; margin: 10px 0;
+        }
+        .stat-box {
+            background: #0d1a2e; border: 1px solid #1a3a5c;
+            border-radius: 5px; padding: 7px 10px; text-align: center;
+        }
+        .stat-box .val { font-size: 1.3em; font-weight: bold; color: #0af; }
+        .stat-box .lbl { font-size: 0.65em; color: #7ab; text-transform: uppercase; }
+
+        /* Filter chips */
+        .chip-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+        .chip {
+            padding: 4px 10px; border-radius: 12px; font-size: 0.72em;
+            cursor: pointer; border: 1px solid #1a4a7a; background: #0d1a2e;
+            color: #7ab; transition: all 0.15s;
+        }
+        .chip.active { background: #0078d4; border-color: #0af; color: #fff; }
+        .chip:hover { border-color: #0af; color: #fff; }
+
+        /* Intel tag filter chips */
+        .tag-chip {
+            padding: 3px 8px; border-radius: 10px; font-size: 0.68em;
+            cursor: pointer; border: 1px solid #1a4a7a; background: #0d1a2e;
+            color: #7ab; transition: all 0.15s; user-select: none;
+        }
+        .tag-chip.active { background: #1a3a5c; border-color: #f80; color: #f80; }
+        .tag-chip:hover { border-color: #f80; color: #f80; }
+        #tagFilterSection { margin-top: 10px; border-top: 1px solid #1a3a5c; padding-top: 10px; }
+        #tagFilterSection h4 { margin: 0 0 6px 0; color: #7ab; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.5px; }
+        #tagFilterSection .clear-tags {
+            font-size: 0.65em; color: #7ab; cursor: pointer; float: right; margin-top: -18px;
+        }
+        #tagFilterSection .clear-tags:hover { color: #fff; }
+
+        #legend { margin-top: 14px; border-top: 1px solid #1a3a5c; padding-top: 12px; }
+        #legend h4 { margin: 0 0 8px 0; color: #7ab; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.5px; }
+        .legend-item { font-size: 0.75em; margin-bottom: 6px; display: flex; align-items: center; color: #cde; cursor: pointer; user-select: none; }
+        .legend-item:hover { color: #fff; }
+        .legend-dot { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; flex-shrink: 0; }
+        .legend-item input[type="checkbox"] {
+            appearance: none; -webkit-appearance: none;
+            width: 14px; height: 14px; border-radius: 3px;
+            border: 1px solid #1a4a7a; background: #0d1a2e;
+            cursor: pointer; flex-shrink: 0; margin-right: 7px;
+            position: relative; transition: background 0.15s, border-color 0.15s;
+        }
+        .legend-item input[type="checkbox"]:checked {
+            background: #0078d4; border-color: #0af;
+        }
+        .legend-item input[type="checkbox"]:checked::after {
+            content: '✓'; position: absolute; top: -1px; left: 1px;
+            font-size: 11px; color: #fff; font-weight: bold;
+        }
+        .legend-item.dimmed { opacity: 0.38; }
+
+        /* Facilities layer toggle */
+        #facilitiesToggle {
+            width: 100%; background: #0d2540; color: #7ab; border: 1px solid #1a4a7a;
+            padding: 7px; cursor: pointer; border-radius: 5px;
+            font-size: 0.78em; font-weight: bold; margin-top: 8px;
+            transition: all 0.2s; text-align: left;
+        }
+        #facilitiesToggle.on { background: #0d3a1a; border-color: #0a8; color: #0fa; }
+        #facilitiesToggle:hover { border-color: #0af; color: #fff; }
+        button.on { background: #3a1a00 !important; border-color: #f80 !important; color: #f80 !important; }
+        .fac-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+
+        /* Proximity Inspector Panel */
+        #proximityPanel {
+            display: none;
+            position: absolute; top: 20px; right: 20px; z-index: 10;
+            background: rgba(10, 14, 22, 0.95);
+            color: white; padding: 14px;
+            border-radius: 10px;
+            border: 1px solid #0a8;
+            width: 300px;
+            box-shadow: 0 4px 24px rgba(0,180,120,0.2);
+            max-height: 80vh; overflow-y: auto;
+            user-select: none;
+        }
+        #proximityPanel h3 {
+            margin: 0 0 4px 0; color: #0fa; font-size: 0.85em;
+            border-bottom: 1px solid #1a3a5c; padding-bottom: 6px;
+            cursor: grab;
+        }
+        #proximityPanel h3:active { cursor: grabbing; }
+        #proximityPanel .closure-name {
+            font-size: 0.78em; color: #7ab; margin-bottom: 10px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #proximityPanel .prox-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 5px 0; border-bottom: 1px solid #0d1a2e; font-size: 0.75em;
+        }
+        #proximityPanel .prox-item:last-child { border-bottom: none; }
+        #proximityPanel .prox-name { color: #cde; flex: 1; }
+        #proximityPanel .prox-dist {
+            color: #0fa; font-weight: bold; font-size: 0.9em;
+            white-space: nowrap; margin-left: 8px;
+        }
+        #proximityPanel .prox-dist.warn { color: #f80; }
+        #proximityPanel .prox-dist.alert { color: #f44; }
+        #proximityPanel .prox-comp { color: #7ab; font-size: 0.85em; margin-left: 6px; }
+        #proximityPanel .close-btn {
+            float: right; cursor: pointer; color: #7ab; font-size: 1.1em;
+            margin-top: -2px; line-height: 1;
+        }
+        #proximityPanel .close-btn:hover { color: #fff; }
+        #proximityPanel .no-fac { color: #7ab; font-size: 0.78em; font-style: italic; }
+
+        #customDateContainer { display: none; }
+        #customDateContainer label { margin-top: 4px; }
+
+        /* Source badges */
+        .source-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+        .src-badge {
+            font-size: 0.65em; padding: 2px 7px; border-radius: 10px;
+            background: #0d1a2e; border: 1px solid #1a4a7a; color: #7ab;
+        }
+        .src-badge.loaded { border-color: #0a8; color: #0fa; }
+    </style>
+</head>
+<body>
+
+<div id="ui-panel">
+    <h3>⬡ IntelHub Closures</h3>
+
+    <label>Time Filter</label>
+    <div class="chip-row" id="chipRow">
+        <div class="chip active"  data-val="live"   onclick="selectChip(this)">🔴 Live Now</div>
+        <div class="chip"         data-val="1"      onclick="selectChip(this)">24 Hours</div>
+        <div class="chip"         data-val="7"      onclick="selectChip(this)">7 Days</div>
+        <div class="chip"         data-val="30"     onclick="selectChip(this)">30 Days</div>
+        <div class="chip"         data-val="90"     onclick="selectChip(this)">90 Days</div>
+        <div class="chip"         data-val="all"    onclick="selectChip(this)">All</div>
+        <div class="chip"         data-val="custom" onclick="selectChip(this)">Custom</div>
+    </div>
+
+    <div id="customDateContainer">
+        <label>Start Date</label>
+        <input type="date" id="customStart">
+        <label>End Date</label>
+        <input type="date" id="customEnd">
+    </div>
+
+    <div class="btn-row">
+        <button onclick="applyFilter()">▶ Apply Filter</button>
+        <button class="secondary" onclick="resetView()">⟳ Reset</button>
+    </div>
+    <div class="btn-row">
+        <button class="secondary" onclick="syncToClock()" title="Filter entities visible at the timeline's current time position">⏱ Sync to Clock</button>
+        <button class="secondary" onclick="jumpToNow()" title="Jump timeline to current real-world time">⏩ Jump to Now</button>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-box"><div class="val" id="statTotal">–</div><div class="lbl">Total</div></div>
+        <div class="stat-box"><div class="val" id="statVisible">–</div><div class="lbl">Visible</div></div>
+        <div class="stat-box"><div class="val" id="statActive">–</div><div class="lbl">Live Now</div></div>
+        <div class="stat-box"><div class="val" id="statSources">–</div><div class="lbl">Sources</div></div>
+    </div>
+
+    <div class="status-row">
+        <span class="status" id="systemStatus" style="color:#ff0;">● Loading...</span>
+        <span class="status" id="countStatus"  style="color:#0af;"></span>
+    </div>
+
+    <div id="legend">
+        <h4>Hazard Classification</h4>
+        <label class="legend-item" data-category="aerospace">
+            <input type="checkbox" checked onchange="toggleCategory('aerospace', this.checked)">
+            <span class="legend-dot" style="background:rgba(0,255,255,0.9);"></span>Aerospace / Missile / Space
+        </label>
+        <label class="legend-item" data-category="subsea">
+            <input type="checkbox" checked onchange="toggleCategory('subsea', this.checked)">
+            <span class="legend-dot" style="background:rgba(0,100,255,0.9);"></span>Subsea / Cable / Survey
+        </label>
+        <label class="legend-item" data-category="livefire">
+            <input type="checkbox" checked onchange="toggleCategory('livefire', this.checked)">
+            <span class="legend-dot" style="background:rgba(255,0,0,0.9);"></span>Live Fire / Ordnance
+        </label>
+        <label class="legend-item" data-category="airspace">
+            <input type="checkbox" checked onchange="toggleCategory('airspace', this.checked)">
+            <span class="legend-dot" style="background:rgba(180,0,255,0.9);"></span>Airspace / TFR
+        </label>
+        <label class="legend-item" data-category="general">
+            <input type="checkbox" checked onchange="toggleCategory('general', this.checked)">
+            <span class="legend-dot" style="background:rgba(255,150,0,0.9);"></span>General Hazard
+        </label>
+    </div>
+
+    <button id="facilitiesToggle" onclick="toggleFacilities()">
+        ⬡ Show Military Facilities (133)
+    </button>
+    <div class="btn-row" style="margin-top:6px">
+        <button class="secondary" onclick="openAlertReport()" title="Open proximity alert HTML report">⚠ Alert Report</button>
+        <button class="secondary" onclick="loadProximityAlerts()" title="Highlight facilities with active proximity alerts on globe">🎯 Show Alerts</button>
+    </div>
+
+    <div id="tagFilterSection">
+        <h4>Intel Tag Filter <span class="clear-tags" onclick="clearTagFilters()">✕ Clear</span></h4>
+        <div class="chip-row" id="tagChipRow">
+            <div class="tag-chip" data-tag="UAS"          onclick="toggleTagChip(this)">UAS</div>
+            <div class="tag-chip" data-tag="LIVE_WEAPONS" onclick="toggleTagChip(this)">LIVE WEAPONS</div>
+            <div class="tag-chip" data-tag="SUBMARINE"    onclick="toggleTagChip(this)">SUBMARINE</div>
+            <div class="tag-chip" data-tag="MISSILE"      onclick="toggleTagChip(this)">MISSILE</div>
+            <div class="tag-chip" data-tag="SPACE_DEBRIS" onclick="toggleTagChip(this)">SPACE DEBRIS</div>
+            <div class="tag-chip" data-tag="NUCLEAR"      onclick="toggleTagChip(this)">NUCLEAR</div>
+            <div class="tag-chip" data-tag="EXERCISE"     onclick="toggleTagChip(this)">EXERCISE</div>
+            <div class="tag-chip" data-tag="LASER"        onclick="toggleTagChip(this)">LASER</div>
+            <div class="tag-chip" data-tag="CYBER"        onclick="toggleTagChip(this)">CYBER/EMP</div>
+            <div class="tag-chip" data-tag="MODU"         onclick="toggleTagChip(this)">MODU/DRILLING</div>
+        </div>
+    </div>
+</div>
+
+<div id="proximityPanel">
+    <h3>📍 Nearest Facilities <span class="close-btn" onclick="closeProximity()">✕</span></h3>
+    <div class="closure-name" id="proxClosureName"></div>
+    <div id="proxList"></div>
+</div>
+
+<div id="cesiumContainer"></div>
+
+<script>
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5MjI0YTc5OS03YzI0LTQ5MDMtYmU2NC02NDI3OWQ0MTVmNWYiLCJpZCI6NDA2NzUyLCJpYXQiOjE3NzYyNzQ2MTJ9.9BLIM0hPBachp5goxgxWrmzIJ0cNVd88Xszka893Ms8';
+
+    const viewer = new Cesium.Viewer('cesiumContainer', {
+        terrain: Cesium.Terrain.fromWorldTerrain(),
+        animation: true,
+        timeline: true,
+        baseLayerPicker: false,
+        geocoder: false,
+        homeButton: true,
+        sceneModePicker: true,
+        navigationHelpButton: false,
+        fullscreenButton: false,
+        shouldAnimate: false
+    });
+
+    // Style the timeline bar to sit above the bottom edge
+    viewer.timeline.container.style.bottom = '0';
+    viewer.animation.container.style.bottom = '30px';
+    viewer.animation.container.style.left   = '5px';
+
+    // ── State ──────────────────────────────────────────────
+    let mainDataSource = null;
+    let allEntities    = [];   // cache of all entity objects
+    let currentChip    = 'live';
+
+    // Category filter state — all on by default
+    const categoryEnabled = {
+        aerospace: true,
+        subsea:    true,
+        livefire:  true,
+        airspace:  true,
+        general:   true
+    };
+
+    // Intel tag filter — empty set means "show all"; any active tag = show only matching
+    const activeTagFilters = new Set();
+
+    // ── Military Facilities Layer ──────────────────────────
+    let facilitiesDataSource = null;
+    let facilitiesVisible    = false;
+
+    /** Color a facility marker by military component */
+    function facilityColor(component) {
+        const c = (component || '').toUpperCase();
+        if (c.includes('USAF'))  return Cesium.Color.fromCssColorString('#4da6ff');  // blue
+        if (c.includes('USN'))   return Cesium.Color.fromCssColorString('#00ccff');  // cyan-blue
+        if (c.includes('USA') && !c.includes('USAF') && !c.includes('USSF'))
+                                 return Cesium.Color.fromCssColorString('#44ff88');  // green
+        if (c.includes('USMC')) return Cesium.Color.fromCssColorString('#ff4444');  // red
+        if (c.includes('USSF')) return Cesium.Color.fromCssColorString('#cc44ff');  // purple
+        if (c.includes('NASA')) return Cesium.Color.fromCssColorString('#ffaa00');  // orange
+        return Cesium.Color.fromCssColorString('#ffff44');                           // yellow = partner/other
+    }
+
+    /** Load and show / hide the military facilities GeoJSON layer */
+    async function toggleFacilities() {
+        const btn = document.getElementById('facilitiesToggle');
+
+        if (facilitiesVisible && facilitiesDataSource) {
+            facilitiesDataSource.show = false;
+            facilitiesVisible = false;
+            btn.classList.remove('on');
+            btn.textContent = '⬡ Show Military Facilities (135)';
+            return;
+        }
+
+        // First load
+        if (!facilitiesDataSource) {
+            try {
+                btn.textContent = '⬡ Loading facilities...';
+                const geoJson = await fetch('./data/military_facilities.geojson?v=' + Date.now())
+                    .then(r => r.json());
+
+                facilitiesDataSource = new Cesium.CustomDataSource('facilities');
+
+                // Deduplicate by name before adding to prevent "entity already exists" errors
+                const seenFacIds = new Set();
+                geoJson.features.forEach(f => {
+                    const props = f.properties || {};
+                    const coords = f.geometry && f.geometry.coordinates;
+                    if (!coords) return;
+                    const facId = 'FAC_' + (props.name || '').replace(/\W/g, '_');
+                    if (seenFacIds.has(facId)) return;
+                    seenFacIds.add(facId);
+
+                    const color = facilityColor(props.component);
+                    const typeIcon = props.type === 'Launch Site'    ? '\u{1F680}' :
+                                     props.type === 'Missile Range'  ? '\u{1F3AF}' :
+                                     props.type === 'Test Range'     ? '\u{1F52C}' :
+                                     props.type === 'Training Range' ? '[TRN]' :
+                                     props.type === 'Intelligence'   ? '[INT]' :
+                                     props.type === 'Missile Defense'? '[MSD]' : '[FAC]';
+
+                    facilitiesDataSource.entities.add({
+                        id: 'FAC_' + props.name.replace(/\W/g, '_'),
+                        name: props.name,
+                        description:
+                            `<b>${props.name}</b><br/>` +
+                            `<b>Component:</b> ${props.component || 'N/A'}<br/>` +
+                            `<b>Type:</b> ${props.type || 'N/A'}<br/>` +
+                            `<b>State/Country:</b> ${props.state || 'N/A'}<br/>` +
+                            `<b>Notes:</b> ${props.notes || ''}`,
+                        position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1]),
+                        point: {
+                            pixelSize: 10,
+                            color: color,
+                            outlineColor: Cesium.Color.BLACK,
+                            outlineWidth: 1,
+                            scaleByDistance: new Cesium.NearFarScalar(1e4, 1.5, 1e7, 0.6),
+                            disableDepthTestDistance: 0   // hide when behind the globe
+                        },
+                        label: {
+                            text: typeIcon + ' ' + props.name,
+                            font: '11px sans-serif',
+                            fillColor: color,
+                            outlineColor: Cesium.Color.BLACK,
+                            outlineWidth: 2,
+                            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                            pixelOffset: new Cesium.Cartesian2(0, -18),
+                            scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 5e6, 0.0),
+                            disableDepthTestDistance: 0   // hide when behind the globe
+                        }
+                    });
+                });
+
+                viewer.dataSources.add(facilitiesDataSource);
+            } catch (e) {
+                console.error('Facilities load error:', e);
+                btn.textContent = 'Facilities load failed: ' + (e && e.message ? e.message.substring(0, 60) : String(e).substring(0, 60));
+                return;
+            }
+        }
+
+        facilitiesDataSource.show = true;
+        facilitiesVisible = true;
+        btn.classList.add('on');
+        btn.textContent = `⬡ Hide Military Facilities (${facilitiesDataSource.entities.values.length})`;
+    }
+
+    // ── Proximity Inspector ────────────────────────────────
+
+    /**
+     * Haversine distance between two [lon, lat] points.
+     * Returns distance in nautical miles.
+     */
+    function haversineNm(lon1, lat1, lon2, lat2) {
+        const R  = 3440.065;  // Earth radius in nautical miles
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    /**
+     * Get the centroid [lon, lat] of a Cesium entity.
+     * Works for Point, Polyline, and Polygon entities.
+     */
+    function getEntityCentroid(entity) {
+        try {
+            if (entity.position) {
+                const cart = entity.position.getValue(viewer.clock.currentTime);
+                if (cart) {
+                    const carto = Cesium.Cartographic.fromCartesian(cart);
+                    return [
+                        Cesium.Math.toDegrees(carto.longitude),
+                        Cesium.Math.toDegrees(carto.latitude)
+                    ];
+                }
+            }
+            // Polyline centroid
+            if (entity.polyline && entity.polyline.positions) {
+                const positions = entity.polyline.positions.getValue(viewer.clock.currentTime);
+                if (positions && positions.length > 0) {
+                    let sumLon = 0, sumLat = 0;
+                    positions.forEach(p => {
+                        const c = Cesium.Cartographic.fromCartesian(p);
+                        sumLon += Cesium.Math.toDegrees(c.longitude);
+                        sumLat += Cesium.Math.toDegrees(c.latitude);
+                    });
+                    return [sumLon / positions.length, sumLat / positions.length];
+                }
+            }
+            // Polygon centroid
+            if (entity.polygon && entity.polygon.hierarchy) {
+                const hier = entity.polygon.hierarchy.getValue(viewer.clock.currentTime);
+                const positions = hier ? (hier.positions || hier) : null;
+                if (positions && positions.length > 0) {
+                    let sumLon = 0, sumLat = 0;
+                    positions.forEach(p => {
+                        const c = Cesium.Cartographic.fromCartesian(p);
+                        sumLon += Cesium.Math.toDegrees(c.longitude);
+                        sumLat += Cesium.Math.toDegrees(c.latitude);
+                    });
+                    return [sumLon / positions.length, sumLat / positions.length];
+                }
+            }
+        } catch (e) { /* ignore */ }
+        return null;
+    }
+
+    /** Show the proximity panel for a clicked closure entity. */
+    function showProximity(entity) {
+        // Only run for closure entities (not facility markers)
+        if (!entity || entity.id.startsWith('FAC_')) return;
+
+        const centroid = getEntityCentroid(entity);
+        if (!centroid) return;
+
+        const [cLon, cLat] = centroid;
+
+        // Load facilities from the GeoJSON file (cached after first load)
+        const panel = document.getElementById('proximityPanel');
+        const nameEl = document.getElementById('proxClosureName');
+        const listEl = document.getElementById('proxList');
+
+        nameEl.textContent = entity.name || entity.id;
+        listEl.innerHTML = '<div class="no-fac">Loading facilities...</div>';
+        panel.style.display = 'block';
+
+        fetch('./data/military_facilities.geojson')
+            .then(r => r.json())
+            .then(geoJson => {
+                const distances = geoJson.features
+                    .filter(f => f.geometry && f.geometry.coordinates)
+                    .map(f => {
+                        const [fLon, fLat] = f.geometry.coordinates;
+                        const nm = haversineNm(cLon, cLat, fLon, fLat);
+                        return { nm, props: f.properties };
+                    })
+                    .sort((a, b) => a.nm - b.nm)
+                    .slice(0, 8);  // top 8 nearest
+
+                if (distances.length === 0) {
+                    listEl.innerHTML = '<div class="no-fac">No facilities found.</div>';
+                    return;
+                }
+
+                listEl.innerHTML = distances.map(d => {
+                    const distClass = d.nm < 50  ? 'alert' :
+                                      d.nm < 150 ? 'warn'  : '';
+                    const icon = d.props.type === 'Launch Site'    ? '🚀' :
+                                 d.props.type === 'Missile Range'  ? '🎯' :
+                                 d.props.type === 'Test Range'     ? '🔬' :
+                                 d.props.type === 'Training Range' ? '⚔️' :
+                                 d.props.type === 'Intelligence'   ? '👁' :
+                                 d.props.type === 'Missile Defense'? '🛡' : '🏛';
+                    return `<div class="prox-item">
+                        <span class="prox-name">${icon} ${d.props.name}</span>
+                        <span class="prox-comp">${d.props.component || ''}</span>
+                        <span class="prox-dist ${distClass}">${Math.round(d.nm)} nm</span>
+                    </div>`;
+                }).join('');
+            })
+            .catch(() => {
+                listEl.innerHTML = '<div class="no-fac">Load facilities layer first.</div>';
+            });
+    }
+
+    function closeProximity() {
+        document.getElementById('proximityPanel').style.display = 'none';
+    }
+
+    // ── Draggable proximity panel ──────────────────────────
+    (function initDrag() {
+        const panel = document.getElementById('proximityPanel');
+        let dragging = false, ox = 0, oy = 0;
+
+        panel.querySelector('h3').addEventListener('mousedown', e => {
+            dragging = true;
+            ox = e.clientX - panel.offsetLeft;
+            oy = e.clientY - panel.offsetTop;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', e => {
+            if (!dragging) return;
+            let nx = e.clientX - ox;
+            let ny = e.clientY - oy;
+            // Clamp to viewport
+            nx = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  nx));
+            ny = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, ny));
+            panel.style.left  = nx + 'px';
+            panel.style.top   = ny + 'px';
+            panel.style.right = 'auto';
+        });
+        document.addEventListener('mouseup', () => { dragging = false; });
+    })();
+
+    // ── Proximity Alert Report & Globe Highlights ──────────
+
+    /** Open the HTML proximity alert report in a new tab. */
+    function openAlertReport() {
+        window.open('./data/proximity_alerts.html', '_blank');
+    }
+
+    // Track whether alert highlights are currently active
+    let alertsActive = false;
+
+    /** Save original facility marker colors before highlighting. */
+    function saveFacilityColors() {
+        if (!facilitiesDataSource) return;
+        facilitiesDataSource.entities.values.forEach(entity => {
+            if (entity.point && !entity._savedColor) {
+                try {
+                    entity._savedColor     = entity.point.color.getValue(viewer.clock.currentTime).clone();
+                    entity._savedSize      = entity.point.pixelSize.getValue(viewer.clock.currentTime);
+                    entity._savedLabelColor= entity.label ? entity.label.fillColor.getValue(viewer.clock.currentTime).clone() : null;
+                } catch (e) { /* ignore */ }
+            }
+        });
+    }
+
+    /** Restore original facility marker colors. */
+    function resetFacilityColors() {
+        if (!facilitiesDataSource) return;
+        facilitiesDataSource.entities.values.forEach(entity => {
+            if (entity.point && entity._savedColor) {
+                try {
+                    entity.point.color.setValue(entity._savedColor);
+                    entity.point.pixelSize.setValue(entity._savedSize || 10);
+                    if (entity.label && entity._savedLabelColor) {
+                        entity.label.fillColor.setValue(entity._savedLabelColor);
+                    }
+                } catch (e) { /* ignore */ }
+                delete entity._savedColor;
+                delete entity._savedSize;
+                delete entity._savedLabelColor;
+            }
+        });
+    }
+
+    /**
+     * Toggle proximity alert highlights on/off.
+     * First click: load alerts.json, highlight alerted facilities.
+     * Second click: restore original colors.
+     */
+    async function loadProximityAlerts() {
+        const btn = document.querySelector('button[onclick="loadProximityAlerts()"]');
+
+        // Toggle OFF — restore original colors
+        if (alertsActive) {
+            resetFacilityColors();
+            alertsActive = false;
+            if (btn) { btn.textContent = '🎯 Show Alerts'; btn.classList.remove('on'); }
+            document.getElementById('systemStatus').innerText = '● System Live | Data Synced';
+            document.getElementById('systemStatus').style.color = '#0f0';
+            return;
+        }
+
+        try {
+            const resp = await fetch('./data/proximity_alerts.json?v=' + Date.now());
+            if (!resp.ok) {
+                alert('No proximity_alerts.json found.\nRun: python scripts/proximity_alert.py');
+                return;
+            }
+            const data = await resp.json();
+            const alerts = data.alerts || [];
+
+            // Ensure facilities layer is loaded and visible
+            if (!facilitiesDataSource) {
+                await toggleFacilities();
+            } else if (!facilitiesVisible) {
+                await toggleFacilities();
+            }
+
+            // Save original colors before modifying
+            saveFacilityColors();
+
+            // Build map: facility name → min dist_nm
+            const alertedFacilities = new Map();
+            alerts.forEach(a => {
+                const existing = alertedFacilities.get(a.facility);
+                if (existing === undefined || a.dist_nm < existing) {
+                    alertedFacilities.set(a.facility, a.dist_nm);
+                }
+            });
+
+            // Apply alert highlight colors
+            if (facilitiesDataSource) {
+                let matched = 0;
+                facilitiesDataSource.entities.values.forEach(entity => {
+                    if (!alertedFacilities.has(entity.name)) return;
+                    const distNm = alertedFacilities.get(entity.name);
+                    const alertColor = distNm < 10  ? Cesium.Color.RED.clone() :
+                                       distNm < 25  ? Cesium.Color.ORANGE.clone() :
+                                       distNm < 50  ? Cesium.Color.YELLOW.clone() :
+                                                      Cesium.Color.fromCssColorString('#88ff44');
+                    if (entity.point) {
+                        try {
+                            entity.point.color.setValue(alertColor);
+                            entity.point.pixelSize.setValue(16);
+                            entity.point.outlineColor.setValue(Cesium.Color.WHITE);
+                            entity.point.outlineWidth.setValue(2);
+                        } catch (err) {
+                            entity.point.color        = new Cesium.ConstantProperty(alertColor);
+                            entity.point.pixelSize    = new Cesium.ConstantProperty(16);
+                            entity.point.outlineColor = new Cesium.ConstantProperty(Cesium.Color.WHITE);
+                            entity.point.outlineWidth = new Cesium.ConstantProperty(2);
+                        }
+                    }
+                    if (entity.label) {
+                        try { entity.label.fillColor.setValue(alertColor); }
+                        catch (err) { entity.label.fillColor = new Cesium.ConstantProperty(alertColor); }
+                    }
+                    matched++;
+                });
+                console.log(`Proximity alerts: matched ${matched} of ${alertedFacilities.size} facilities`);
+            }
+
+            alertsActive = true;
+            if (btn) { btn.textContent = '🎯 Hide Alerts'; btn.classList.add('on'); }
+
+            const critCount = [...alertedFacilities.values()].filter(d => d < 25).length;
+            document.getElementById('countStatus').innerHTML =
+                `<span style="color:#f80;font-weight:bold">` +
+                `⚠ ${alerts.length} alerts | ${alertedFacilities.size} facilities | ` +
+                `${critCount} critical (&lt;25nm)</span>`;
+            document.getElementById('systemStatus').innerText =
+                `● Proximity alerts active (${data.radius_nm}nm radius)`;
+            document.getElementById('systemStatus').style.color = '#f80';
+
+        } catch (e) {
+            console.error('Alert load error:', e);
+            alert('Run: python scripts/proximity_alert.py\nthen reload.');
+        }
+    }
+
+    /** Toggle a tag chip on/off and re-apply filter. */
+    function toggleTagChip(el) {
+        const tag = el.dataset.tag;
+        if (activeTagFilters.has(tag)) {
+            activeTagFilters.delete(tag);
+            el.classList.remove('active');
+        } else {
+            activeTagFilters.add(tag);
+            el.classList.add('active');
+        }
+        applyFilter();
+    }
+
+    /** Clear all active tag filters. */
+    function clearTagFilters() {
+        activeTagFilters.clear();
+        document.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
+        applyFilter();
+    }
+
+    /**
+     * Check if an entity passes the active tag filter.
+     * If no tags are selected, all entities pass.
+     * If tags are selected, entity must have at least one matching tag.
+     */
+    function entityPassesTagFilter(entity) {
+        if (activeTagFilters.size === 0) return true;
+        const tagsRaw = getProp(entity, 'tags');
+        if (!tagsRaw) return false;
+        const entityTags = String(tagsRaw).split(',').map(t => t.trim());
+        for (const tag of activeTagFilters) {
+            if (entityTags.includes(tag)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Map an entity's color (read from its polygon/polyline/point material)
+     * to one of the five category keys.
+     * Falls back to the 'category' property if present, then to 'general'.
+     */
+    function getEntityCategory(entity) {
+        // Prefer an explicit 'category' property written by the Python script
+        const cat = getProp(entity, 'category');
+        if (cat) {
+            const c = String(cat).toLowerCase();
+            if (c.includes('aero') || c.includes('missile') || c.includes('space') || c.includes('rocket')) return 'aerospace';
+            if (c.includes('sub')  || c.includes('cable')   || c.includes('survey') || c.includes('marine')) return 'subsea';
+            if (c.includes('fire') || c.includes('ord')     || c.includes('weapon') || c.includes('gun'))    return 'livefire';
+            if (c.includes('air')  || c.includes('tfr')     || c.includes('notam'))                          return 'airspace';
+            return 'general';
+        }
+
+        // Fall back: inspect the entity's rendered color
+        let color = null;
+        try {
+            if (entity.polygon && entity.polygon.material) {
+                const mat = entity.polygon.material;
+                if (mat.color) color = mat.color.getValue(viewer.clock.currentTime);
+            } else if (entity.polyline && entity.polyline.material) {
+                const mat = entity.polyline.material;
+                if (mat.color) color = mat.color.getValue(viewer.clock.currentTime);
+            } else if (entity.point && entity.point.color) {
+                color = entity.point.color.getValue(viewer.clock.currentTime);
+            }
+        } catch (e) { /* ignore */ }
+
+        if (color) {
+            const r = color.red, g = color.green, b = color.blue;
+            // cyan  (0,1,1)  → aerospace
+            if (g > 0.7 && b > 0.7 && r < 0.3) return 'aerospace';
+            // blue  (0,~0.4,1) → subsea
+            if (b > 0.7 && r < 0.3 && g < 0.6) return 'subsea';
+            // red   (1,0,0)  → livefire
+            if (r > 0.7 && g < 0.3 && b < 0.3) return 'livefire';
+            // purple(~0.7,0,1) → airspace
+            if (r > 0.4 && b > 0.7 && g < 0.3) return 'airspace';
+            // orange(1,~0.6,0) → general
+            if (r > 0.7 && g > 0.3 && b < 0.3) return 'general';
+        }
+
+        return 'general';
+    }
+
+    /** Toggle a category on/off and re-apply the current filter. */
+    function toggleCategory(category, enabled) {
+        categoryEnabled[category] = enabled;
+        // Dim the legend row when disabled
+        const row = document.querySelector(`.legend-item[data-category="${category}"]`);
+        if (row) row.classList.toggle('dimmed', !enabled);
+        applyFilter();
+    }
+
+    // ── Helpers ────────────────────────────────────────────
+
+    /**
+     * Parse an ISO-8601 string (with or without trailing Z) to a JS Date.
+     * Returns null if unparseable.
+     */
+    function parseISO(str) {
+        if (!str) return null;
+        str = String(str).trim();
+        // Normalise space-separated datetime
+        if (str.indexOf(' ') !== -1 && str.indexOf('T') === -1) {
+            str = str.replace(' ', 'T');
+        }
+        // Ensure UTC marker
+        if (!str.endsWith('Z') && str.indexOf('+') === -1 && str.indexOf('-', 10) === -1) {
+            str += 'Z';
+        }
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    /**
+     * Get a property value from a CZML entity, handling both
+     * ConstantProperty and plain values.
+     */
+    function getProp(entity, propName) {
+        try {
+            const p = entity.properties[propName];
+            if (!p) return null;
+            // ConstantProperty has getValue()
+            if (typeof p.getValue === 'function') {
+                return p.getValue(viewer.clock.currentTime);
+            }
+            return p;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * Extract start/end dates from the CZML availability interval string.
+     * availability is stored as "2024-05-08T12:00:00Z/2024-08-06T12:00:00Z"
+     * Returns { start: Date|null, end: Date|null }
+     */
+    function getAvailabilityDates(entity) {
+        try {
+            if (entity.availability && entity.availability.length > 0) {
+                // TimeIntervalCollection — grab the first interval's ISO string
+                const interval = entity.availability.get(0);
+                if (interval) {
+                    const startJD = interval.start;
+                    const stopJD  = interval.stop;
+                    return {
+                        start: startJD ? Cesium.JulianDate.toDate(startJD) : null,
+                        end:   stopJD  ? Cesium.JulianDate.toDate(stopJD)  : null
+                    };
+                }
+            }
+        } catch (e) { /* fall through */ }
+        return { start: null, end: null };
+    }
+
+    /**
+     * Determine if an entity is currently active (live right now).
+     * Uses the availability interval as the authoritative source because
+     * the Python script hardcodes active=true for all entities.
+     */
+    function isEntityLiveNow(entity) {
+        const now = new Date();
+
+        // 1. Prefer the CZML availability interval — most reliable date source
+        if (entity.availability && entity.availability.length > 0) {
+            try {
+                const nowJD = Cesium.JulianDate.fromDate(now);
+                return entity.availability.contains(nowJD);
+            } catch (e) { /* fall through */ }
+        }
+
+        // 2. Fall back to timestamp / end_time properties
+        const start = getEntityStart(entity);
+        const end   = getEntityEnd(entity);
+
+        if (start && start > now) return false;
+        if (end   && end   < now) return false;
+        // No usable dates — assume active
+        return true;
+    }
+
+    /**
+     * Get the start date of an entity as a JS Date (or null).
+     * Prefers the availability interval start; falls back to 'timestamp' property.
+     */
+    function getEntityStart(entity) {
+        const av = getAvailabilityDates(entity);
+        if (av.start) return av.start;
+        return parseISO(getProp(entity, 'timestamp'));
+    }
+
+    /**
+     * Get the end date of an entity as a JS Date (or null).
+     * Prefers the availability interval stop; falls back to 'end_time' property.
+     * NOTE: end_time is often "" in the data — availability is the reliable source.
+     */
+    function getEntityEnd(entity) {
+        const av = getAvailabilityDates(entity);
+        if (av.end) return av.end;
+        return parseISO(getProp(entity, 'end_time'));
+    }
+
+    // ── Chip selection ─────────────────────────────────────
+    function selectChip(el) {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        currentChip = el.dataset.val;
+        const showCustom = (currentChip === 'custom');
+        document.getElementById('customDateContainer').style.display = showCustom ? 'block' : 'none';
+    }
+
+    // ── Reset view ─────────────────────────────────────────
+    function resetView() {
+        viewer.camera.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(-95, 38, 12000000),
+            duration: 1.5
+        });
+    }
+
+    // ── Clock sync ─────────────────────────────────────────
+    /**
+     * Filter entities to show only those active at the timeline's
+     * current clock position. Overrides the chip filter temporarily.
+     */
+    function syncToClock() {
+        if (!mainDataSource) return;
+        const clockTime = Cesium.JulianDate.toDate(viewer.clock.currentTime);
+        let visibleCount = 0;
+        let liveCount    = 0;
+
+        allEntities.forEach(entity => {
+            if (entity.id === 'document') { entity.show = false; return; }
+
+            // Category + tag gates still apply
+            if (!categoryEnabled[getEntityCategory(entity)]) { entity.show = false; return; }
+            if (!entityPassesTagFilter(entity))               { entity.show = false; return; }
+
+            // Show if entity's availability window contains the clock time
+            let show = false;
+            const start = getEntityStart(entity);
+            const end   = getEntityEnd(entity);
+            const s = start || new Date(0);
+            const e = end   || new Date('2099-12-31');
+            show = clockTime >= s && clockTime <= e;
+
+            entity.show = show;
+            if (show) {
+                visibleCount++;
+                if (isEntityLiveNow(entity)) liveCount++;
+            }
+        });
+
+        document.getElementById('statVisible').innerText = visibleCount;
+        document.getElementById('statActive').innerText  = liveCount;
+        const ts = clockTime.toISOString().replace('T', ' ').substring(0, 16) + 'Z';
+        document.getElementById('countStatus').innerText =
+            `Clock @ ${ts} | ${visibleCount} visible | ${liveCount} live`;
+    }
+
+    /** Jump the Cesium clock to real-world now. */
+    function jumpToNow() {
+        viewer.clock.currentTime = Cesium.JulianDate.fromDate(new Date());
+        viewer.clock.shouldAnimate = false;
+    }
+
+    // ── Apply filter ───────────────────────────────────────
+    function applyFilter() {
+        if (!mainDataSource) {
+            document.getElementById('systemStatus').innerText = '● No data loaded — run grab_notams.py first';
+            document.getElementById('systemStatus').style.color = '#f80';
+            return;
+        }
+
+        const now = new Date();
+        let visibleCount = 0;
+        let liveCount    = 0;
+
+        allEntities.forEach(entity => {
+            // Skip the document entity
+            if (entity.id === 'document') { entity.show = false; return; }
+
+            const start = getEntityStart(entity);
+            const end   = getEntityEnd(entity);
+            const liveNow = isEntityLiveNow(entity);
+
+            // Category gate — skip if the entity's category is toggled off
+            const entityCat = getEntityCategory(entity);
+            if (!categoryEnabled[entityCat]) {
+                entity.show = false;
+                return;
+            }
+
+            // Intel tag gate — if any tags are selected, only show matching entities
+            if (!entityPassesTagFilter(entity)) {
+                entity.show = false;
+                return;
+            }
+
+            let show = false;
+
+            if (currentChip === 'live') {
+                // Only show currently active warnings
+                show = liveNow;
+
+            } else if (currentChip === 'all') {
+                show = true;
+
+            } else if (currentChip === 'custom') {
+                const customStartVal = document.getElementById('customStart').value;
+                const customEndVal   = document.getElementById('customEnd').value;
+                const filterStart = customStartVal ? new Date(customStartVal + 'T00:00:00Z') : null;
+                const filterEnd   = customEndVal   ? new Date(customEndVal   + 'T23:59:59Z') : null;
+
+                // Show if entity overlaps the custom window
+                const entityStart = start || new Date(0);
+                const entityEnd   = end   || new Date('2099-12-31');
+
+                if (filterStart && filterEnd) {
+                    show = entityStart <= filterEnd && entityEnd >= filterStart;
+                } else if (filterStart) {
+                    show = entityEnd >= filterStart;
+                } else if (filterEnd) {
+                    show = entityStart <= filterEnd;
+                } else {
+                    show = true;
+                }
+
+            } else {
+                // Numeric days-back filter (1, 7, 30, 90)
+                // Shows records whose ISSUE DATE (start) falls within the window.
+                // If no start date is known, fall back to showing it only if live.
+                const daysBack = parseInt(currentChip, 10);
+                const cutoff   = new Date(now.getTime() - daysBack * 86400000);
+
+                if (start) {
+                    show = start >= cutoff;
+                } else {
+                    show = liveNow;
+                }
+            }
+
+            entity.show = show;
+            if (show) {
+                visibleCount++;
+                if (liveNow) liveCount++;
+            }
+        });
+
+        // Update stats
+        document.getElementById('statVisible').innerText = visibleCount;
+        document.getElementById('statActive').innerText  = liveCount;
+        document.getElementById('countStatus').innerText =
+            `Showing ${visibleCount} of ${allEntities.length} | ${liveCount} live`;
+
+        // Run multidomain intersection detection on visible entities
+        detectMultidomainIntersections();
+
+        // Fly to visible entities (zoomTo is safer than flyTo for polyline/polygon entities)
+        const visibleList = allEntities.filter(e => e.show && e.id !== 'document');
+        if (visibleList.length > 0) {
+            viewer.zoomTo(visibleList).catch(() => {
+                // fallback: fly to world view
+                viewer.camera.flyTo({
+                    destination: Cesium.Cartesian3.fromDegrees(-95, 38, 12000000),
+                    duration: 1.5
+                });
+            });
+        } else {
+            const label = currentChip === 'live'   ? 'currently active'  :
+                          currentChip === 'all'    ? 'any filter'         :
+                          currentChip === 'custom' ? 'that custom range'  :
+                          currentChip === '1'      ? 'the past 24 hours'  :
+                          `the past ${currentChip} days`;
+            document.getElementById('countStatus').innerText = `No closures found for ${label}`;
+        }
+    }
+
+    // ── Multidomain Intersection Detection ────────────────
+    /**
+     * Detect airspace + maritime closure pairs that overlap geographically.
+     * When found, highlight both entities with a bright yellow outline and
+     * add a "⚠ MULTIDOMAIN" badge to the status bar.
+     *
+     * Algorithm: bounding-box overlap check between visible entities of
+     * different domain types (fast enough for ~400 entities).
+     */
+    function detectMultidomainIntersections() {
+        if (!allEntities.length) return;
+
+        const visible = allEntities.filter(e => e.show && e.id !== 'document');
+
+        // Classify visible entities by domain
+        const airspace  = visible.filter(e => getEntityCategory(e) === 'airspace');
+        const maritime  = visible.filter(e => {
+            const cat = getEntityCategory(e);
+            return cat === 'subsea' || cat === 'general';
+        });
+        const aerospace = visible.filter(e => getEntityCategory(e) === 'aerospace');
+
+        // Reset all polyline widths to normal and restore original colors
+        visible.forEach(e => {
+            if (e.polyline) {
+                e.polyline.width = new Cesium.ConstantProperty(
+                    getProp(e, 'active') ? 3 : 1
+                );
+                // Restore original color if we previously highlighted it
+                if (e._origMaterial) {
+                    e.polyline.material = e._origMaterial;
+                    delete e._origMaterial;
+                }
+            }
+        });
+
+        // Get bounding box [minLon, minLat, maxLon, maxLat] for an entity
+        function getBBox(entity) {
+            try {
+                let positions = null;
+                if (entity.polyline && entity.polyline.positions) {
+                    positions = entity.polyline.positions.getValue(viewer.clock.currentTime);
+                } else if (entity.polygon && entity.polygon.hierarchy) {
+                    const h = entity.polygon.hierarchy.getValue(viewer.clock.currentTime);
+                    positions = h ? (h.positions || h) : null;
+                } else if (entity.position) {
+                    const p = entity.position.getValue(viewer.clock.currentTime);
+                    if (p) {
+                        const c = Cesium.Cartographic.fromCartesian(p);
+                        const lon = Cesium.Math.toDegrees(c.longitude);
+                        const lat = Cesium.Math.toDegrees(c.latitude);
+                        return [lon - 1, lat - 1, lon + 1, lat + 1];
+                    }
+                }
+                if (!positions || positions.length === 0) return null;
+                let minLon = 180, minLat = 90, maxLon = -180, maxLat = -90;
+                positions.forEach(p => {
+                    const c = Cesium.Cartographic.fromCartesian(p);
+                    const lon = Cesium.Math.toDegrees(c.longitude);
+                    const lat = Cesium.Math.toDegrees(c.latitude);
+                    if (lon < minLon) minLon = lon;
+                    if (lat < minLat) minLat = lat;
+                    if (lon > maxLon) maxLon = lon;
+                    if (lat > maxLat) maxLat = lat;
+                });
+                return [minLon, minLat, maxLon, maxLat];
+            } catch (e) { return null; }
+        }
+
+        function bboxOverlap(a, b) {
+            if (!a || !b) return false;
+            return a[0] <= b[2] && a[2] >= b[0] &&
+                   a[1] <= b[3] && a[3] >= b[1];
+        }
+
+        const intersectingIds = new Set();
+        const pairs = [
+            [airspace, maritime],
+            [airspace, aerospace],
+            [aerospace, maritime]
+        ];
+
+        pairs.forEach(([groupA, groupB]) => {
+            groupA.forEach(ea => {
+                const bboxA = getBBox(ea);
+                groupB.forEach(eb => {
+                    const bboxB = getBBox(eb);
+                    if (bboxOverlap(bboxA, bboxB)) {
+                        intersectingIds.add(ea.id);
+                        intersectingIds.add(eb.id);
+                    }
+                });
+            });
+        });
+
+        // Highlight intersecting entities — thicker width + yellow tint overlay
+        let count = 0;
+        intersectingIds.forEach(id => {
+            const entity = allEntities.find(e => e.id === id);
+            if (entity && entity.polyline) {
+                // Save original material before overwriting
+                if (!entity._origMaterial) {
+                    entity._origMaterial = entity.polyline.material;
+                }
+                entity.polyline.width = new Cesium.ConstantProperty(6);
+                // Blend original color toward yellow for visibility
+                entity.polyline.material = new Cesium.ColorMaterialProperty(
+                    Cesium.Color.YELLOW.withAlpha(0.9)
+                );
+                count++;
+            }
+        });
+
+        // Update status bar
+        const statusEl = document.getElementById('countStatus');
+        const base = statusEl.innerText.split(' |')[0];
+        if (count > 0) {
+            statusEl.innerHTML =
+                `${base} | <span style="color:#ff0;font-weight:bold">` +
+                `⚠ ${intersectingIds.size} MULTIDOMAIN INTERSECTIONS</span>`;
+        }
+    }
+
+    // ── Init ───────────────────────────────────────────────
+    async function init() {
+        // Set default custom date range to today ± 30 days
+        const today = new Date();
+        const pad   = n => String(n).padStart(2, '0');
+        const fmt   = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        const past30 = new Date(today); past30.setDate(today.getDate() - 30);
+        document.getElementById('customStart').value = fmt(past30);
+        document.getElementById('customEnd').value   = fmt(today);
+
+        try {
+            document.getElementById('systemStatus').innerText = '● Loading data...';
+            document.getElementById('systemStatus').style.color = '#ff0';
+
+            mainDataSource = await Cesium.CzmlDataSource.load('./data/closures.czml?v=' + Date.now());
+            viewer.dataSources.add(mainDataSource);
+
+            // Cache all entities (excluding document)
+            allEntities = mainDataSource.entities.values.filter(e => e.id !== 'document');
+
+            // Count sources
+            const sources = new Set();
+            allEntities.forEach(e => {
+                const src = getProp(e, 'source');
+                if (src) sources.add(src);
+            });
+
+            // Update stats
+            document.getElementById('statTotal').innerText   = allEntities.length;
+            document.getElementById('statSources').innerText = sources.size || '1';
+
+            document.getElementById('systemStatus').innerText = '● System Live | Data Synced';
+            document.getElementById('systemStatus').style.color = '#0f0';
+
+            // Set clock range to span all entity availability windows
+            const allStarts = allEntities.map(e => getEntityStart(e)).filter(Boolean);
+            const allEnds   = allEntities.map(e => getEntityEnd(e)).filter(Boolean);
+            if (allStarts.length > 0 && allEnds.length > 0) {
+                const minStart = new Date(Math.min(...allStarts.map(d => d.getTime())));
+                const maxEnd   = new Date(Math.max(...allEnds.map(d => d.getTime())));
+                const startJD  = Cesium.JulianDate.fromDate(minStart);
+                const stopJD   = Cesium.JulianDate.fromDate(maxEnd);
+                viewer.clock.startTime    = startJD;
+                viewer.clock.stopTime     = stopJD;
+                viewer.clock.currentTime  = Cesium.JulianDate.fromDate(new Date());
+                viewer.clock.clockRange   = Cesium.ClockRange.CLAMPED;
+                viewer.clock.multiplier   = 86400; // 1 day per second when playing
+                viewer.timeline.zoomTo(startJD, stopJD);
+            }
+
+            // ── Click handler: proximity inspector ────────────
+            const clickHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+            clickHandler.setInputAction(movement => {
+                const picked = viewer.scene.pick(movement.position);
+                if (Cesium.defined(picked) && picked.id) {
+                    const entity = picked.id;
+                    // Skip facility markers — they use Cesium's default info box
+                    if (entity.id && String(entity.id).startsWith('FAC_')) {
+                        closeProximity();
+                        return;
+                    }
+                    showProximity(entity);
+                } else {
+                    closeProximity();
+                }
+            }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+            // Auto-apply "Live Now" filter on load
+            applyFilter();
+
+            // Initial camera
+            viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(-95, 38, 12000000),
+                duration: 2
+            });
+
+        } catch (e) {
+            console.error('CZML Load Error:', e);
+            document.getElementById('systemStatus').innerText = '● Error: Data not found — run grab_notams.py';
+            document.getElementById('systemStatus').style.color = '#f00';
+            document.getElementById('statTotal').innerText   = '0';
+            document.getElementById('statVisible').innerText = '0';
+            document.getElementById('statActive').innerText  = '0';
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
