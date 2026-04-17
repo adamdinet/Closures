@@ -907,8 +907,14 @@ def parse_local_raw_notams():
 
 # ─────────────────────────────────────────────
 # SOURCE 6: NGA MSI Anti-Shipping Activity Messages (ASAM)
+# Multiple endpoint attempts — NGA has changed this URL several times.
 # ─────────────────────────────────────────────
-NGA_ASAM_URL = "https://msi.nga.mil/api/publications/asam"
+NGA_ASAM_URLS = [
+    "https://msi.nga.mil/api/publications/asam",                          # original
+    "https://msi.nga.mil/api/publications/anti-shipping-activity-messages",# v2 attempt
+    "https://msi.nga.mil/api/publications/asam?output=json",              # with param
+    "https://msi.nga.mil/publications/asam",                              # no /api/
+]
 
 def fetch_nga_asam():
     """
@@ -921,12 +927,24 @@ def fetch_nga_asam():
                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     results = []
 
+    data = None
+    for url in NGA_ASAM_URLS:
+        try:
+            r = requests.get(url, params={"output": "json", "maxRecords": 2000},
+                             headers=headers, verify=False, timeout=15)
+            if r.status_code == 200 and len(r.content) > 10:
+                data = r.json()
+                print(f"  -> ASAM endpoint OK: {url}")
+                break
+            else:
+                print(f"  X ASAM {url} -> {r.status_code}")
+        except Exception as e:
+            print(f"  X ASAM {url} -> {type(e).__name__}")
+
     try:
-        r = requests.get(NGA_ASAM_URL,
-                         params={"output": "json", "maxRecords": 2000},
-                         headers=headers, verify=False, timeout=30)
-        r.raise_for_status()
-        data = r.json()
+        if not data:
+            print("  X All ASAM endpoints failed")
+            return results
         items = (data.get('asam') or data.get('results') or
                  (data if isinstance(data, list) else []))
         print(f"  -> {len(items)} ASAM records fetched")
@@ -986,9 +1004,334 @@ def fetch_nga_asam():
             })
 
     except Exception as e:
-        print(f"  X ASAM fetch failed: {e}")
+        print(f"  X ASAM parse error: {e}")
 
     print(f"  -> Total ASAM records: {len(results)}")
+    return results
+
+
+# ─────────────────────────────────────────────
+# SOURCE 7: USCG NavCen — updated endpoints
+# ─────────────────────────────────────────────
+USCG_LNM_NEW_URLS = [
+    "https://www.navcen.uscg.gov/api/lnm/getAll",
+    "https://www.navcen.uscg.gov/api/lnm",
+    "https://www.navcen.uscg.gov/api/broadcasts",
+    "https://www.navcen.uscg.gov/json/lnmSummary",          # old (404 now)
+    "https://www.navcen.uscg.gov/json/lnmSummary/getAll",   # old (404 now)
+]
+USCG_BNM_NEW_URLS = [
+    "https://www.navcen.uscg.gov/api/bnm/rss",
+    "https://www.navcen.uscg.gov/rss/bnm.xml",              # old
+    "https://www.navcen.uscg.gov/api/bnm",
+]
+
+def fetch_uscg_updated():
+    """
+    Attempt updated USCG NavCen endpoints.
+    Falls back gracefully if all fail.
+    """
+    print("\n[SOURCE 7] USCG NavCen (updated endpoints)...")
+    headers = {'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json,text/xml,*/*'}
+    results = []
+
+    # Try LNM JSON endpoints
+    for url in USCG_LNM_NEW_URLS:
+        try:
+            r = requests.get(url, headers=headers, verify=False, timeout=15)
+            if r.status_code == 200 and len(r.content) > 50:
+                try:
+                    data = r.json()
+                    items = data if isinstance(data, list) else (
+                            data.get('lnm') or data.get('results') or data.get('data') or [])
+                    print(f"  -> LNM endpoint OK: {url} ({len(items)} items)")
+                    for item in items:
+                        text  = (item.get('text') or item.get('description') or
+                                 item.get('body') or str(item))
+                        name  = item.get('title') or item.get('name') or 'USCG LNM'
+                        start = parse_date_flexible(str(item.get('date') or item.get('issueDate') or ''))
+                        carto = extract_coords_from_text(text)
+                        colors= get_color(text)
+                        results.append({
+                            "id":          f"USCG_LNM_{hash(name) & 0xFFFFFF}",
+                            "name":        name,
+                            "description": text,
+                            "start_iso":   start,
+                            "end_iso":     None,
+                            "carto":       carto,
+                            "colors":      colors,
+                            "source":      "USCG LNM",
+                            "active":      True
+                        })
+                    break
+                except Exception:
+                    pass  # not JSON, try next
+            else:
+                print(f"  X LNM {url} -> {r.status_code}")
+        except Exception as e:
+            print(f"  X LNM {url} -> {type(e).__name__}")
+
+    # Try BNM RSS
+    for url in USCG_BNM_NEW_URLS:
+        try:
+            r = requests.get(url, headers=headers, verify=False, timeout=15)
+            if r.status_code == 200 and len(r.content) > 50:
+                # Parse RSS/XML
+                import xml.etree.ElementTree as ET
+                try:
+                    root = ET.fromstring(r.content)
+                    ns = {'atom': 'http://www.w3.org/2005/Atom'}
+                    items = root.findall('.//item') or root.findall('.//atom:entry', ns)
+                    print(f"  -> BNM RSS OK: {url} ({len(items)} items)")
+                    for item in items:
+                        title = (item.findtext('title') or item.findtext('atom:title', namespaces=ns) or 'USCG BNM')
+                        desc  = (item.findtext('description') or item.findtext('atom:summary', namespaces=ns) or '')
+                        pub   = (item.findtext('pubDate') or item.findtext('atom:published', namespaces=ns) or '')
+                        start = parse_date_flexible(pub)
+                        carto = extract_coords_from_text(desc)
+                        colors= get_color(desc)
+                        results.append({
+                            "id":          f"USCG_BNM_{hash(title) & 0xFFFFFF}",
+                            "name":        title,
+                            "description": desc,
+                            "start_iso":   start,
+                            "end_iso":     None,
+                            "carto":       carto,
+                            "colors":      colors,
+                            "source":      "USCG BNM",
+                            "active":      True
+                        })
+                    break
+                except Exception as xe:
+                    print(f"  X BNM XML parse error: {xe}")
+            else:
+                print(f"  X BNM {url} -> {r.status_code}")
+        except Exception as e:
+            print(f"  X BNM {url} -> {type(e).__name__}")
+
+    if not results:
+        print("  X All USCG endpoints failed")
+    else:
+        print(f"  -> Total USCG records: {len(results)}")
+    return results
+
+
+# ─────────────────────────────────────────────
+# SOURCE 8: FAA Special Use Airspace (SUA)
+# FAA publishes SUA status via their ADDS (Aviation Digital Data Service).
+# The SUA GeoJSON endpoint returns active/scheduled restricted areas,
+# MOAs, warning areas, and prohibited areas.
+# ─────────────────────────────────────────────
+FAA_SUA_URLS = [
+    # FAA ADDS SUA status feed
+    "https://adds-faa.gov/api/sua/v1/sua",
+    "https://aviationweather.gov/api/data/sua?format=json",
+    "https://aviationweather.gov/cgi-bin/data/sua.php?format=json",
+    # FAA ArcGIS SUA layer
+    "https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services/Special_Use_Airspace/FeatureServer/0/query?where=1%3D1&outFields=NAME,TYPE_CODE,LOWER_VAL,UPPER_VAL,TIME_CODE&outSR=4326&f=geojson&resultRecordCount=500",
+]
+
+def fetch_faa_sua():
+    """
+    Fetch FAA Special Use Airspace (SUA) — MOAs, restricted areas,
+    warning areas, prohibited areas.
+    """
+    print("\n[SOURCE 8] FAA Special Use Airspace (SUA)...")
+    headers = {'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json,*/*'}
+    results = []
+
+    for url in FAA_SUA_URLS:
+        try:
+            r = requests.get(url, headers=headers, verify=False, timeout=20)
+            if r.status_code != 200 or len(r.content) < 50:
+                print(f"  X SUA {url} -> {r.status_code}")
+                continue
+
+            data = r.json()
+            print(f"  -> SUA endpoint OK: {url}")
+
+            # Handle GeoJSON FeatureCollection
+            features = data.get('features', [])
+            if features:
+                print(f"  -> {len(features)} SUA features")
+                for feat in features:
+                    props = feat.get('properties', {})
+                    geom  = feat.get('geometry', {})
+                    name  = (props.get('NAME') or props.get('name') or
+                             props.get('airspaceName') or 'SUA')
+                    atype = (props.get('TYPE_CODE') or props.get('type') or
+                             props.get('airspaceClass') or '')
+                    full_name = f"{atype} {name}".strip() if atype else name
+
+                    # Extract coordinates from geometry
+                    carto = []
+                    if geom.get('type') == 'Polygon':
+                        for ring in geom.get('coordinates', []):
+                            for lon, lat in ring:
+                                carto.extend([lon, lat, 0])
+                    elif geom.get('type') == 'MultiPolygon':
+                        for poly in geom.get('coordinates', []):
+                            for ring in poly:
+                                for lon, lat in ring:
+                                    carto.extend([lon, lat, 0])
+                    elif geom.get('type') == 'Point':
+                        lon, lat = geom['coordinates'][:2]
+                        carto = [lon, lat, 0]
+
+                    colors = {"poly": [180, 0, 255, 50], "line": [180, 0, 255, 255],
+                              "label": "Airspace/TFR"}
+
+                    results.append({
+                        "id":          f"SUA_{hash(full_name) & 0xFFFFFF:06x}",
+                        "name":        full_name,
+                        "description": f"Type: {atype}\n{str(props)}",
+                        "start_iso":   None,
+                        "end_iso":     None,
+                        "carto":       carto,
+                        "colors":      colors,
+                        "source":      "FAA SUA",
+                        "active":      True
+                    })
+                break
+
+            # Handle plain JSON array
+            items = data if isinstance(data, list) else data.get('sua', data.get('results', []))
+            if items:
+                print(f"  -> {len(items)} SUA records")
+                for item in items:
+                    name  = (item.get('name') or item.get('airspaceName') or 'SUA')
+                    atype = (item.get('type') or item.get('typeCode') or '')
+                    text  = str(item)
+                    carto = extract_coords_from_text(text)
+                    colors= {"poly": [180, 0, 255, 50], "line": [180, 0, 255, 255],
+                             "label": "Airspace/TFR"}
+                    results.append({
+                        "id":          f"SUA_{hash(name) & 0xFFFFFF:06x}",
+                        "name":        f"{atype} {name}".strip(),
+                        "description": text,
+                        "start_iso":   None,
+                        "end_iso":     None,
+                        "carto":       carto,
+                        "colors":      colors,
+                        "source":      "FAA SUA",
+                        "active":      True
+                    })
+                break
+
+        except Exception as e:
+            print(f"  X SUA {url} -> {type(e).__name__}: {str(e)[:60]}")
+
+    if not results:
+        print("  X All FAA SUA endpoints failed")
+    else:
+        print(f"  -> Total SUA records: {len(results)}")
+    return results
+
+
+# ─────────────────────────────────────────────
+# SOURCE 9: Space-Track.org — reentry & decay predictions
+# Requires free account: https://www.space-track.org/auth/createAccount
+# Set env vars: SPACETRACK_USER and SPACETRACK_PASS
+# or create a file data/spacetrack_creds.json: {"user":"...","pass":"..."}
+# ─────────────────────────────────────────────
+SPACETRACK_LOGIN  = "https://www.space-track.org/ajaxauth/login"
+SPACETRACK_DECAY  = "https://www.space-track.org/basicspacedata/query/class/decay/DECAY_EPOCH/>now-30/orderby/DECAY_EPOCH%20desc/format/json"
+SPACETRACK_LAUNCH = "https://www.space-track.org/basicspacedata/query/class/launch_site/format/json"
+
+def _get_spacetrack_creds():
+    """Load Space-Track credentials from env vars or creds file."""
+    import os as _os
+    user = _os.environ.get('SPACETRACK_USER')
+    pwd  = _os.environ.get('SPACETRACK_PASS')
+    if user and pwd:
+        return user, pwd
+    creds_path = _os.path.join(DATA_DIR, 'spacetrack_creds.json')
+    if _os.path.exists(creds_path):
+        try:
+            with open(creds_path) as f:
+                c = json.load(f)
+            return c.get('user'), c.get('pass')
+        except Exception:
+            pass
+    return None, None
+
+def fetch_spacetrack_decay():
+    """
+    Fetch recent satellite reentry/decay predictions from Space-Track.org.
+    These are objects predicted to reenter within 30 days — relevant for
+    debris hazard zones near launch corridors and test ranges.
+    """
+    print("\n[SOURCE 9] Space-Track.org (reentry/decay predictions)...")
+    user, pwd = _get_spacetrack_creds()
+    if not user or not pwd:
+        print("  X No Space-Track credentials found.")
+        print("    Create data/spacetrack_creds.json: {\"user\":\"email\",\"pass\":\"password\"}")
+        print("    Or set env vars SPACETRACK_USER and SPACETRACK_PASS")
+        print("    Free account: https://www.space-track.org/auth/createAccount")
+        return []
+
+    results = []
+    session = requests.Session()
+    try:
+        # Login
+        login_r = session.post(SPACETRACK_LOGIN,
+                               data={'identity': user, 'password': pwd},
+                               verify=False, timeout=20)
+        if login_r.status_code != 200 or 'Failed' in login_r.text:
+            print(f"  X Space-Track login failed: {login_r.status_code}")
+            return []
+        print("  -> Space-Track login OK")
+
+        # Fetch decay predictions
+        r = session.get(SPACETRACK_DECAY, verify=False, timeout=30)
+        r.raise_for_status()
+        decays = r.json()
+        print(f"  -> {len(decays)} decay predictions fetched")
+
+        for d in decays:
+            norad   = d.get('NORAD_CAT_ID', 'UNK')
+            name    = d.get('OBJECT_NAME', f'Object {norad}')
+            country = d.get('COUNTRY', '')
+            epoch   = d.get('DECAY_EPOCH', '')
+            msg     = d.get('MSG_EPOCH', '')
+            lat     = d.get('LATITUDE')
+            lon     = d.get('LONGITUDE')
+
+            start_iso = parse_date_flexible(epoch or msg)
+            carto = []
+            if lat is not None and lon is not None:
+                try:
+                    carto = [float(lon), float(lat), 0]
+                except (ValueError, TypeError):
+                    pass
+
+            desc = (f"NORAD ID: {norad}\nObject: {name}\nCountry: {country}\n"
+                    f"Predicted Reentry: {epoch}\nMsg Epoch: {msg}")
+
+            colors = {"poly": [0, 255, 255, 60], "line": [0, 255, 255, 255],
+                      "label": "Aerospace/Missile"}
+
+            results.append({
+                "id":          f"DECAY_{norad}",
+                "name":        f"REENTRY: {name}",
+                "description": desc,
+                "start_iso":   start_iso,
+                "end_iso":     None,
+                "carto":       carto,
+                "colors":      colors,
+                "source":      "Space-Track Decay",
+                "active":      True
+            })
+
+    except Exception as e:
+        print(f"  X Space-Track error: {e}")
+    finally:
+        try:
+            session.get("https://www.space-track.org/ajaxauth/logout", timeout=5)
+        except Exception:
+            pass
+
+    print(f"  -> Total decay records: {len(results)}")
     return results
 
 
@@ -1004,6 +1347,9 @@ def generate_czml():
     all_records += fetch_uscg_lnm()
     all_records += parse_local_raw_notams()
     all_records += fetch_nga_asam()
+    all_records += fetch_uscg_updated()
+    all_records += fetch_faa_sua()
+    all_records += fetch_spacetrack_decay()
 
     # Deduplicate by ID
     seen_ids = set()

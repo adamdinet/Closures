@@ -45,3 +45,4 @@ desktop.ini
 .env
 secrets.json
 config_local.py
+data/spacetrack_creds.json
