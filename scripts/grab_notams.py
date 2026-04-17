@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-IntelHub NOTAM/Warning Ingest Script
-=====================================
+Sky-Net (Lite) NOTAM/Warning Ingest Script
+===========================================
 Sources:
   1. NGA MSI Broadcast Warnings (NAVAREA maritime warnings) - public, no key
   2. FAA NOTAM Search API (aeronautical NOTAMs) - public, no key
@@ -1025,7 +1025,7 @@ def generate_czml():
     # Build CZML
     czml = [{
         "id": "document",
-        "name": "IntelHub Live Ingest",
+        "name": "Sky-Net (Lite) Live Ingest",
         "version": "1.0",
         "clock": {
             "interval": "2020-01-01T00:00:00Z/2030-12-31T23:59:59Z",

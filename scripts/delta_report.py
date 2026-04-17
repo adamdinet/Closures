@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-IntelHub Delta Report
-=====================
+Sky-Net (Lite) Delta Report
+============================
 Compares the current closures.czml against a saved snapshot from the
 previous run and produces a human-readable HTML + plain-text diff report.
 
@@ -96,7 +96,7 @@ def diff_czml(prev, curr):
 def write_txt_report(new_ids, removed_ids, changed_ids, prev, curr, run_time):
     lines = [
         "=" * 60,
-        f"IntelHub Delta Report — {run_time}",
+        f"Sky-Net (Lite) Delta Report — {run_time}",
         "=" * 60,
         f"NEW closures:     {len(new_ids)}",
         f"REMOVED closures: {len(removed_ids)}",
@@ -164,7 +164,7 @@ def write_html_report(new_ids, removed_ids, changed_ids, prev, curr, run_time):
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>IntelHub Delta Report — {run_time}</title>
+<title>Sky-Net (Lite) Delta Report — {run_time}</title>
 <style>
   body {{ background:#0a0e16; color:#cde; font-family:'Segoe UI',sans-serif; padding:20px; }}
   h1 {{ color:#0af; font-size:1.1em; border-bottom:1px solid #1a3a5c; padding-bottom:8px; }}
@@ -180,7 +180,7 @@ def write_html_report(new_ids, removed_ids, changed_ids, prev, curr, run_time):
 </style>
 </head>
 <body>
-<h1>&#9651; IntelHub Delta Report &mdash; {run_time}</h1>
+<h1>&#9651; Sky-Net (Lite) Delta Report &mdash; {run_time}</h1>
 <div class="summary">
   <div class="stat new"><div class="val">{len(new_ids)}</div><div class="lbl">New</div></div>
   <div class="stat rem"><div class="val">{len(removed_ids)}</div><div class="lbl">Cancelled</div></div>

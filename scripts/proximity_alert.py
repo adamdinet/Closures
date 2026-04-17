@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-IntelHub Proximity Alert
-========================
+Sky-Net (Lite) Proximity Alert
+================================
 Uses Shapely to compute which active closures fall within a configurable
 buffer radius of known military facilities.
 
@@ -125,7 +125,7 @@ def load_facilities(path):
 
 def run(radius_nm=50):
     run_time = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    print(f"IntelHub Proximity Alert — radius: {radius_nm} nm — {run_time}")
+    print(f"Sky-Net (Lite) Proximity Alert — radius: {radius_nm} nm — {run_time}")
 
     if not os.path.exists(CZML_PATH):
         print(f"ERROR: {CZML_PATH} not found. Run grab_notams.py first.")
@@ -244,7 +244,7 @@ def write_html(alerts, radius_nm, run_time):
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>IntelHub Proximity Alerts — {run_time}</title>
+<title>Sky-Net (Lite) Proximity Alerts — {run_time}</title>
 <style>
   body {{ background:#0a0e16; color:#cde; font-family:'Segoe UI',sans-serif; padding:20px; }}
   h1 {{ color:#0af; font-size:1.1em; border-bottom:1px solid #1a3a5c; padding-bottom:8px; }}
@@ -261,7 +261,7 @@ def write_html(alerts, radius_nm, run_time):
 </style>
 </head>
 <body>
-<h1>&#9888; IntelHub Proximity Alerts &mdash; {radius_nm} nm radius &mdash; {run_time}</h1>
+<h1>&#9888; Sky-Net (Lite) Proximity Alerts &mdash; {radius_nm} nm radius &mdash; {run_time}</h1>
 <div class="summary">
   <div class="stat"><div class="val">{len(alerts)}</div><div class="lbl">Total Alerts</div></div>
   <div class="stat"><div class="val">{sum(1 for a in alerts if a['dist_nm'] < 10)}</div><div class="lbl">&lt;10 nm</div></div>
@@ -289,7 +289,7 @@ def write_html(alerts, radius_nm, run_time):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="IntelHub Proximity Alert")
+    parser = argparse.ArgumentParser(description="Sky-Net (Lite) Proximity Alert")
     parser.add_argument("--radius-nm", type=float, default=50,
                         help="Alert radius in nautical miles (default: 50)")
     args = parser.parse_args()

@@ -1,6 +1,6 @@
 @echo off
 echo ============================================
-echo  IntelHub Local Server
+echo  Sky-Net (Lite) Local Server
 echo  Open browser to: http://localhost:8765
 echo  Press Ctrl+C to stop
 echo ============================================
