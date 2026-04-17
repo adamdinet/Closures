@@ -17,8 +17,47 @@
             border-radius: 10px;
             border: 1px solid #0078d4;
             width: 280px;
+            max-height: calc(100vh - 180px);
+            overflow-y: auto;
+            overflow-x: hidden;
             box-shadow: 0 4px 24px rgba(0,120,212,0.25);
+            scrollbar-width: thin;
+            scrollbar-color: #1a4a7a #0a0e16;
         }
+
+        /* Floating Intel Tag Filter panel — bottom-center above timeline */
+        #tagPanel {
+            position: absolute;
+            bottom: 58px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(10, 14, 22, 0.93);
+            color: white;
+            padding: 8px 14px 10px;
+            border-radius: 8px;
+            border: 1px solid #1a4a7a;
+            box-shadow: 0 2px 16px rgba(0,120,212,0.2);
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            max-width: calc(100vw - 320px);
+        }
+        #tagPanel .tag-label {
+            font-size: 0.68em; color: #7ab; text-transform: uppercase;
+            letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0;
+        }
+        #tagPanel .clear-tags {
+            font-size: 0.65em; color: #7ab; cursor: pointer;
+            flex-shrink: 0; margin-left: 2px;
+        }
+        #tagPanel .clear-tags:hover { color: #fff; }
+        #ui-panel::-webkit-scrollbar { width: 5px; }
+        #ui-panel::-webkit-scrollbar-track { background: #0a0e16; border-radius: 3px; }
+        #ui-panel::-webkit-scrollbar-thumb { background: #1a4a7a; border-radius: 3px; }
+        #ui-panel::-webkit-scrollbar-thumb:hover { background: #0af; }
 
         h3 {
             margin: 0 0 14px 0; color: #0af;
@@ -79,12 +118,6 @@
         }
         .tag-chip.active { background: #1a3a5c; border-color: #f80; color: #f80; }
         .tag-chip:hover { border-color: #f80; color: #f80; }
-        #tagFilterSection { margin-top: 10px; border-top: 1px solid #1a3a5c; padding-top: 10px; }
-        #tagFilterSection h4 { margin: 0 0 6px 0; color: #7ab; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.5px; }
-        #tagFilterSection .clear-tags {
-            font-size: 0.65em; color: #7ab; cursor: pointer; float: right; margin-top: -18px;
-        }
-        #tagFilterSection .clear-tags:hover { color: #fff; }
 
         #legend { margin-top: 14px; border-top: 1px solid #1a3a5c; padding-top: 12px; }
         #legend h4 { margin: 0 0 8px 0; color: #7ab; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -119,6 +152,30 @@
         button.on { background: #3a1a00 !important; border-color: #f80 !important; color: #f80 !important; }
         .fac-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 
+        /* ── Resize handles ─────────────────────────────────── */
+        .resize-handle {
+            position: absolute; z-index: 20;
+            background: transparent;
+        }
+        /* edges */
+        .resize-handle.n  { top: 0;    left: 6px;  right: 6px; height: 6px; cursor: n-resize; }
+        .resize-handle.s  { bottom: 0; left: 6px;  right: 6px; height: 6px; cursor: s-resize; }
+        .resize-handle.e  { right: 0;  top: 6px;   bottom: 6px; width: 6px; cursor: e-resize; }
+        .resize-handle.w  { left: 0;   top: 6px;   bottom: 6px; width: 6px; cursor: w-resize; }
+        /* corners */
+        .resize-handle.nw { top: 0;    left: 0;    width: 10px; height: 10px; cursor: nw-resize; }
+        .resize-handle.ne { top: 0;    right: 0;   width: 10px; height: 10px; cursor: ne-resize; }
+        .resize-handle.sw { bottom: 0; left: 0;    width: 10px; height: 10px; cursor: sw-resize; }
+        .resize-handle.se { bottom: 0; right: 0;   width: 10px; height: 10px; cursor: se-resize; }
+        /* visible corner grip dots */
+        .resize-handle.se::after, .resize-handle.sw::after,
+        .resize-handle.ne::after, .resize-handle.nw::after {
+            content: '';
+            position: absolute; width: 6px; height: 6px;
+            border-radius: 50%; background: rgba(0,170,255,0.45);
+            top: 50%; left: 50%; transform: translate(-50%,-50%);
+        }
+
         /* Proximity Inspector Panel */
         #proximityPanel {
             display: none;
@@ -127,10 +184,16 @@
             color: white; padding: 14px;
             border-radius: 10px;
             border: 1px solid #0a8;
-            width: 300px;
+            width: 300px; min-width: 200px; min-height: 120px;
             box-shadow: 0 4px 24px rgba(0,180,120,0.2);
             max-height: 80vh; overflow-y: auto;
             user-select: none;
+            overflow: hidden;
+        }
+        #proximityPanel .panel-scroll {
+            overflow-y: auto; overflow-x: hidden;
+            max-height: calc(100% - 40px);
+            scrollbar-width: thin; scrollbar-color: #1a4a7a #0a0e16;
         }
         #proximityPanel h3 {
             margin: 0 0 4px 0; color: #0fa; font-size: 0.85em;
@@ -170,10 +233,15 @@
             color: white; padding: 14px;
             border-radius: 10px;
             border: 1px solid #0af;
-            width: 320px;
+            width: 320px; min-width: 200px; min-height: 120px;
             box-shadow: 0 4px 24px rgba(0,170,255,0.2);
-            max-height: 50vh; overflow-y: auto;
+            max-height: 70vh; overflow: hidden;
             user-select: none;
+        }
+        #targetInfoPanel .panel-scroll {
+            overflow-y: auto; overflow-x: hidden;
+            max-height: calc(100% - 40px);
+            scrollbar-width: thin; scrollbar-color: #1a4a7a #0a0e16;
         }
         #targetInfoPanel h3 {
             margin: 0 0 8px 0; color: #0af; font-size: 0.85em;
@@ -193,6 +261,19 @@
         #targetInfoPanel .ti-type-ROCKET_BODY { color: #ff8800; font-weight: bold; }
         #targetInfoPanel .close-btn { float: right; cursor: pointer; color: #7ab; font-size: 1.1em; }
         #targetInfoPanel .close-btn:hover { color: #fff; }
+
+        /* Cesium built-in InfoBox — make it resizable */
+        .cesium-infoBox {
+            resize: both !important;
+            overflow: auto !important;
+            min-width: 200px !important;
+            min-height: 100px !important;
+            max-width: 90vw !important;
+            max-height: 80vh !important;
+        }
+        .cesium-infoBox-bodyless .cesium-infoBox-iframe {
+            height: 100% !important;
+        }
 
         /* Go/No-Go weather badge */
         .gonogo-badge {
@@ -301,32 +382,53 @@
         <button class="secondary" id="geoCopBtn" onclick="toggleGeoCop()" title="Plot GEO belt satellites from geo_catalog.json (run parse_orbital.py first)">🛰 GEO Orbital COP</button>
     </div>
 
-    <div id="tagFilterSection">
-        <h4>Intel Tag Filter <span class="clear-tags" onclick="clearTagFilters()">✕ Clear</span></h4>
-        <div class="chip-row" id="tagChipRow">
-            <div class="tag-chip" data-tag="UAS"          onclick="toggleTagChip(this)">UAS</div>
-            <div class="tag-chip" data-tag="LIVE_WEAPONS" onclick="toggleTagChip(this)">LIVE WEAPONS</div>
-            <div class="tag-chip" data-tag="SUBMARINE"    onclick="toggleTagChip(this)">SUBMARINE</div>
-            <div class="tag-chip" data-tag="MISSILE"      onclick="toggleTagChip(this)">MISSILE</div>
-            <div class="tag-chip" data-tag="SPACE_DEBRIS" onclick="toggleTagChip(this)">SPACE DEBRIS</div>
-            <div class="tag-chip" data-tag="NUCLEAR"      onclick="toggleTagChip(this)">NUCLEAR</div>
-            <div class="tag-chip" data-tag="EXERCISE"     onclick="toggleTagChip(this)">EXERCISE</div>
-            <div class="tag-chip" data-tag="LASER"        onclick="toggleTagChip(this)">LASER</div>
-            <div class="tag-chip" data-tag="CYBER"        onclick="toggleTagChip(this)">CYBER/EMP</div>
-            <div class="tag-chip" data-tag="MODU"         onclick="toggleTagChip(this)">MODU/DRILLING</div>
-        </div>
-    </div>
+</div>
+
+<!-- Intel Tag Filter — floating bar above the timeline -->
+<div id="tagPanel">
+    <span class="tag-label">⬡ Intel Tags</span>
+    <div class="tag-chip" data-tag="UAS"          onclick="toggleTagChip(this)">UAS</div>
+    <div class="tag-chip" data-tag="LIVE_WEAPONS" onclick="toggleTagChip(this)">LIVE WEAPONS</div>
+    <div class="tag-chip" data-tag="SUBMARINE"    onclick="toggleTagChip(this)">SUBMARINE</div>
+    <div class="tag-chip" data-tag="MISSILE"      onclick="toggleTagChip(this)">MISSILE</div>
+    <div class="tag-chip" data-tag="SPACE_DEBRIS" onclick="toggleTagChip(this)">SPACE DEBRIS</div>
+    <div class="tag-chip" data-tag="NUCLEAR"      onclick="toggleTagChip(this)">NUCLEAR</div>
+    <div class="tag-chip" data-tag="EXERCISE"     onclick="toggleTagChip(this)">EXERCISE</div>
+    <div class="tag-chip" data-tag="LASER"        onclick="toggleTagChip(this)">LASER</div>
+    <div class="tag-chip" data-tag="CYBER"        onclick="toggleTagChip(this)">CYBER/EMP</div>
+    <div class="tag-chip" data-tag="MODU"         onclick="toggleTagChip(this)">MODU/DRILLING</div>
+    <span class="clear-tags" onclick="clearTagFilters()">✕ Clear</span>
 </div>
 
 <div id="targetInfoPanel">
+    <div class="resize-handle n"  data-dir="n"></div>
+    <div class="resize-handle s"  data-dir="s"></div>
+    <div class="resize-handle e"  data-dir="e"></div>
+    <div class="resize-handle w"  data-dir="w"></div>
+    <div class="resize-handle nw" data-dir="nw"></div>
+    <div class="resize-handle ne" data-dir="ne"></div>
+    <div class="resize-handle sw" data-dir="sw"></div>
+    <div class="resize-handle se" data-dir="se"></div>
     <h3>🛰 Target Info <span class="close-btn" onclick="closeTargetInfo()">✕</span></h3>
-    <div id="targetInfoContent"></div>
+    <div class="panel-scroll">
+        <div id="targetInfoContent"></div>
+    </div>
 </div>
 
 <div id="proximityPanel">
+    <div class="resize-handle n"  data-dir="n"></div>
+    <div class="resize-handle s"  data-dir="s"></div>
+    <div class="resize-handle e"  data-dir="e"></div>
+    <div class="resize-handle w"  data-dir="w"></div>
+    <div class="resize-handle nw" data-dir="nw"></div>
+    <div class="resize-handle ne" data-dir="ne"></div>
+    <div class="resize-handle sw" data-dir="sw"></div>
+    <div class="resize-handle se" data-dir="se"></div>
     <h3>📍 Nearest Facilities <span class="close-btn" onclick="closeProximity()">✕</span></h3>
-    <div class="closure-name" id="proxClosureName"></div>
-    <div id="proxList"></div>
+    <div class="panel-scroll">
+        <div class="closure-name" id="proxClosureName"></div>
+        <div id="proxList"></div>
+    </div>
 </div>
 
 <div id="cesiumContainer"></div>
@@ -1670,6 +1772,82 @@
     }
 
     init();
+
+    // ── Resizable panels ───────────────────────────────────
+    /**
+     * Make a panel resizable via 8 directional handles.
+     * Handles must be children with class "resize-handle" and data-dir attribute.
+     * @param {HTMLElement} panel
+     * @param {{ minW?: number, minH?: number }} opts
+     */
+    function makeResizable(panel, opts) {
+        opts = opts || {};
+        const minW = opts.minW || 180;
+        const minH = opts.minH || 100;
+
+        panel.querySelectorAll('.resize-handle').forEach(function(handle) {
+            handle.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const dir    = handle.dataset.dir;
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const startW = panel.offsetWidth;
+                const startH = panel.offsetHeight;
+                const startL = panel.offsetLeft;
+                const startT = panel.offsetTop;
+
+                // Normalise to explicit left/top so right/bottom don't fight us
+                panel.style.right  = 'auto';
+                panel.style.bottom = 'auto';
+                panel.style.left   = startL + 'px';
+                panel.style.top    = startT + 'px';
+
+                function onMove(ev) {
+                    const dx = ev.clientX - startX;
+                    const dy = ev.clientY - startY;
+
+                    let newW = startW, newH = startH, newL = startL, newT = startT;
+
+                    if (dir.indexOf('e') !== -1)  newW = Math.max(minW, startW + dx);
+                    if (dir.indexOf('s') !== -1)  newH = Math.max(minH, startH + dy);
+                    if (dir.indexOf('w') !== -1) {
+                        newW = Math.max(minW, startW - dx);
+                        newL = startL + (startW - newW);
+                    }
+                    if (dir.indexOf('n') !== -1) {
+                        newH = Math.max(minH, startH - dy);
+                        newT = startT + (startH - newH);
+                    }
+
+                    panel.style.width  = newW + 'px';
+                    panel.style.height = newH + 'px';
+                    panel.style.left   = newL + 'px';
+                    panel.style.top    = newT + 'px';
+
+                    // Keep inner scroll wrapper filling the panel
+                    const scroll = panel.querySelector('.panel-scroll');
+                    if (scroll) {
+                        const h3El = panel.querySelector('h3');
+                        const h3H  = h3El ? h3El.offsetHeight : 30;
+                        scroll.style.maxHeight = Math.max(40, newH - h3H - 28) + 'px';
+                    }
+                }
+
+                function onUp() {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup',   onUp);
+                }
+
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup',   onUp);
+            });
+        });
+    }
+
+    makeResizable(document.getElementById('targetInfoPanel'),  { minW: 200, minH: 120 });
+    makeResizable(document.getElementById('proximityPanel'),   { minW: 200, minH: 120 });
 </script>
 </body>
 </html>
