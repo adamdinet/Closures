@@ -162,6 +162,38 @@
         #proximityPanel .close-btn:hover { color: #fff; }
         #proximityPanel .no-fac { color: #7ab; font-size: 0.78em; font-style: italic; }
 
+        /* GEO Target Info Panel */
+        #targetInfoPanel {
+            display: none;
+            position: absolute; bottom: 60px; right: 20px; z-index: 10;
+            background: rgba(10, 14, 22, 0.96);
+            color: white; padding: 14px;
+            border-radius: 10px;
+            border: 1px solid #0af;
+            width: 320px;
+            box-shadow: 0 4px 24px rgba(0,170,255,0.2);
+            max-height: 50vh; overflow-y: auto;
+            user-select: none;
+        }
+        #targetInfoPanel h3 {
+            margin: 0 0 8px 0; color: #0af; font-size: 0.85em;
+            border-bottom: 1px solid #1a3a5c; padding-bottom: 6px;
+            cursor: grab;
+        }
+        #targetInfoPanel h3:active { cursor: grabbing; }
+        #targetInfoPanel .ti-row {
+            display: flex; justify-content: space-between;
+            padding: 3px 0; border-bottom: 1px solid #0d1a2e;
+            font-size: 0.75em;
+        }
+        #targetInfoPanel .ti-label { color: #7ab; flex: 0 0 120px; }
+        #targetInfoPanel .ti-value { color: #cde; text-align: right; }
+        #targetInfoPanel .ti-type-PAYLOAD     { color: #44ff88; font-weight: bold; }
+        #targetInfoPanel .ti-type-DEBRIS      { color: #ff4444; font-weight: bold; }
+        #targetInfoPanel .ti-type-ROCKET_BODY { color: #ff8800; font-weight: bold; }
+        #targetInfoPanel .close-btn { float: right; cursor: pointer; color: #7ab; font-size: 1.1em; }
+        #targetInfoPanel .close-btn:hover { color: #fff; }
+
         /* Go/No-Go weather badge */
         .gonogo-badge {
             display: inline-block; padding: 2px 8px; border-radius: 4px;
@@ -265,6 +297,9 @@
     <div class="btn-row" style="margin-top:4px">
         <button class="secondary" id="weatherBtn" onclick="toggleWeatherLayer()" title="Load Go/No-Go weather assessment (run fetch_weather.py first)">🌤 Weather Go/No-Go</button>
     </div>
+    <div class="btn-row" style="margin-top:4px">
+        <button class="secondary" id="geoCopBtn" onclick="toggleGeoCop()" title="Plot GEO belt satellites from geo_catalog.json (run parse_orbital.py first)">🛰 GEO Orbital COP</button>
+    </div>
 
     <div id="tagFilterSection">
         <h4>Intel Tag Filter <span class="clear-tags" onclick="clearTagFilters()">✕ Clear</span></h4>
@@ -281,6 +316,11 @@
             <div class="tag-chip" data-tag="MODU"         onclick="toggleTagChip(this)">MODU/DRILLING</div>
         </div>
     </div>
+</div>
+
+<div id="targetInfoPanel">
+    <h3>🛰 Target Info <span class="close-btn" onclick="closeTargetInfo()">✕</span></h3>
+    <div id="targetInfoContent"></div>
 </div>
 
 <div id="proximityPanel">
@@ -590,6 +630,178 @@
 
     // Track whether alert highlights are currently active
     let alertsActive = false;
+
+    // ── GEO Orbital COP Layer ──────────────────────────────
+    let geoCopDataSource = null;
+    let geoCopVisible    = false;
+    const GEO_ALT_KM     = 35786;  // geostationary altitude in km
+
+    /** Toggle the GEO Orbital COP layer on/off. */
+    async function toggleGeoCop() {
+        const btn = document.getElementById('geoCopBtn');
+
+        // Toggle OFF
+        if (geoCopVisible && geoCopDataSource) {
+            geoCopDataSource.show = false;
+            geoCopVisible = false;
+            btn.textContent = '🛰 GEO Orbital COP';
+            btn.classList.remove('on');
+            return;
+        }
+
+        // First load
+        if (!geoCopDataSource) {
+            try {
+                btn.textContent = '🛰 Loading GEO catalog...';
+                const resp = await fetch('./data/geo_catalog.json?v=' + Date.now());
+                if (!resp.ok) {
+                    btn.textContent = '🛰 GEO Orbital COP';
+                    alert('No geo_catalog.json found.\nRun: python scripts/parse_orbital.py');
+                    return;
+                }
+                const catalog = await resp.json();
+
+                geoCopDataSource = new Cesium.CustomDataSource('geo_cop');
+
+                // Only plot objects with a known longitude
+                const plottable = catalog.filter(s => s.LONGITUDE_EST != null);
+                const seenIds   = new Set();
+
+                plottable.forEach(sat => {
+                    const eid = 'GEO_' + (sat.NORAD_CAT_ID || sat.OBJECT_ID || sat.SATNAME).replace(/\W/g,'_');
+                    if (seenIds.has(eid)) return;
+                    seenIds.add(eid);
+
+                    const lon     = parseFloat(sat.LONGITUDE_EST);
+                    const lat     = 0;  // GEO belt sits on equator
+                    const altM    = GEO_ALT_KM * 1000;
+
+                    // Color by type
+                    const dispType = sat.DISPLAY_TYPE || 'PAYLOAD';
+                    const color = dispType === 'DEBRIS'       ? Cesium.Color.RED.withAlpha(0.9) :
+                                  dispType === 'ROCKET_BODY'  ? Cesium.Color.ORANGE.withAlpha(0.9) :
+                                                                Cesium.Color.fromCssColorString('#44ff88').withAlpha(0.9);
+
+                    const pixelSize = dispType === 'DEBRIS' ? 6 : 8;
+
+                    geoCopDataSource.entities.add({
+                        id:   eid,
+                        name: sat.SATNAME || sat.OBJECT_NAME || eid,
+                        description: JSON.stringify(sat),  // store full row for Target Info
+                        position: Cesium.Cartesian3.fromDegrees(lon, lat, altM),
+                        point: {
+                            pixelSize:    pixelSize,
+                            color:        color,
+                            outlineColor: Cesium.Color.BLACK.withAlpha(0.5),
+                            outlineWidth: 1,
+                            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                            scaleByDistance: new Cesium.NearFarScalar(1e6, 1.2, 1e8, 0.4)
+                        },
+                        label: {
+                            text:       sat.SATNAME || '',
+                            font:       '10px sans-serif',
+                            fillColor:  color,
+                            outlineColor: Cesium.Color.BLACK,
+                            outlineWidth: 2,
+                            style:      Cesium.LabelStyle.FILL_AND_OUTLINE,
+                            pixelOffset: new Cesium.Cartesian2(0, -14),
+                            scaleByDistance: new Cesium.NearFarScalar(1e6, 1.0, 1e7, 0.0),
+                            disableDepthTestDistance: Number.POSITIVE_INFINITY
+                        }
+                    });
+                });
+
+                viewer.dataSources.add(geoCopDataSource);
+
+                const payloadCount = plottable.filter(s => s.DISPLAY_TYPE === 'PAYLOAD').length;
+                const debrisCount  = plottable.filter(s => s.DISPLAY_TYPE === 'DEBRIS').length;
+                const rbCount      = plottable.filter(s => s.DISPLAY_TYPE === 'ROCKET_BODY').length;
+                console.log(`GEO COP: ${plottable.length} plotted (${payloadCount} payloads, ${debrisCount} debris, ${rbCount} R/B)`);
+
+            } catch (e) {
+                console.error('GEO COP load error:', e);
+                btn.textContent = '🛰 GEO COP load failed: ' + (e.message || '').substring(0, 40);
+                return;
+            }
+        }
+
+        geoCopDataSource.show = true;
+        geoCopVisible = true;
+        btn.classList.add('on');
+        const total = geoCopDataSource.entities.values.length;
+        btn.textContent = `🛰 Hide GEO COP (${total})`;
+    }
+
+    // ── Target Info Panel ──────────────────────────────────
+
+    /** Show the Target Info panel for a GEO satellite entity. */
+    function showTargetInfo(entity) {
+        const panel   = document.getElementById('targetInfoPanel');
+        const content = document.getElementById('targetInfoContent');
+
+        // Parse the full row stored in description
+        let sat = {};
+        try { sat = JSON.parse(entity.description || '{}'); } catch (e) { sat = {}; }
+
+        const dispType  = sat.DISPLAY_TYPE || 'PAYLOAD';
+        const typeClass = `ti-type-${dispType}`;
+        const typeLabel = dispType === 'PAYLOAD' ? '🟢 PAYLOAD' :
+                          dispType === 'DEBRIS'  ? '🔴 DEBRIS'  :
+                                                   '🟠 ROCKET BODY';
+
+        const fields = [
+            ['Name',        sat.SATNAME || sat.OBJECT_NAME || entity.name],
+            ['Type',        `<span class="${typeClass}">${typeLabel}</span>`],
+            ['NORAD ID',    sat.NORAD_CAT_ID || sat.OBJECT_NUMBER || '—'],
+            ['Intl Des.',   sat.INTLDES || sat.OBJECT_ID || '—'],
+            ['Country',     sat.COUNTRY || '—'],
+            ['Launch Date', sat.LAUNCH || '—'],
+            ['Launch Site', sat.SITE || '—'],
+            ['Launch Year', sat.LAUNCH_YEAR || '—'],
+            ['GEO Lon (est)', sat.LONGITUDE_EST != null ? `${parseFloat(sat.LONGITUDE_EST).toFixed(1)}°E` : '—'],
+            ['Inclination', sat.INCLINATION ? `${sat.INCLINATION}°` : '—'],
+            ['Period',      sat.PERIOD ? `${sat.PERIOD} min` : '—'],
+            ['Apogee',      sat.APOGEE ? `${sat.APOGEE} km` : '—'],
+            ['Perigee',     sat.PERIGEE ? `${sat.PERIGEE} km` : '—'],
+            ['RCS Size',    sat.RCS_SIZE || '—'],
+            ['Status',      sat.CURRENT === 'Y' ? '✅ Active' : '❌ Inactive'],
+        ];
+
+        content.innerHTML = fields.map(([label, value]) =>
+            `<div class="ti-row">
+                <span class="ti-label">${label}</span>
+                <span class="ti-value">${value}</span>
+            </div>`
+        ).join('');
+
+        panel.style.display = 'block';
+    }
+
+    function closeTargetInfo() {
+        document.getElementById('targetInfoPanel').style.display = 'none';
+    }
+
+    // Make Target Info panel draggable
+    (function initTargetInfoDrag() {
+        const panel = document.getElementById('targetInfoPanel');
+        let dragging = false, ox = 0, oy = 0;
+        panel.querySelector('h3').addEventListener('mousedown', e => {
+            dragging = true;
+            ox = e.clientX - panel.offsetLeft;
+            oy = e.clientY - panel.offsetTop;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', e => {
+            if (!dragging) return;
+            let nx = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - ox));
+            let ny = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - oy));
+            panel.style.left   = nx + 'px';
+            panel.style.top    = ny + 'px';
+            panel.style.bottom = 'auto';
+            panel.style.right  = 'auto';
+        });
+        document.addEventListener('mouseup', () => { dragging = false; });
+    })();
 
     // ── Weather Go/No-Go Layer ─────────────────────────────
     let weatherData    = null;   // loaded from data/weather.json
@@ -1413,14 +1625,28 @@
                 const picked = viewer.scene.pick(movement.position);
                 if (Cesium.defined(picked) && picked.id) {
                     const entity = picked.id;
-                    // Skip facility markers — they use Cesium's default info box
-                    if (entity.id && String(entity.id).startsWith('FAC_')) {
+                    const eid    = String(entity.id || '');
+
+                    // GEO satellite → Target Info panel
+                    if (eid.startsWith('GEO_')) {
                         closeProximity();
+                        showTargetInfo(entity);
                         return;
                     }
+
+                    // Facility marker → close both panels (Cesium default info box handles it)
+                    if (eid.startsWith('FAC_')) {
+                        closeProximity();
+                        closeTargetInfo();
+                        return;
+                    }
+
+                    // Closure entity → Proximity inspector
+                    closeTargetInfo();
                     showProximity(entity);
                 } else {
                     closeProximity();
+                    closeTargetInfo();
                 }
             }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 

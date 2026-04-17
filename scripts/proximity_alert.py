@@ -31,12 +31,14 @@ except ImportError:
     print("ERROR: pip install shapely")
     sys.exit(1)
 
-BASE_DIR       = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR       = os.path.join(BASE_DIR, "data")
-CZML_PATH      = os.path.join(DATA_DIR, "closures.czml")
-FACILITIES_PATH= os.path.join(DATA_DIR, "military_facilities.geojson")
-JSON_OUT       = os.path.join(DATA_DIR, "proximity_alerts.json")
-HTML_OUT       = os.path.join(DATA_DIR, "proximity_alerts.html")
+BASE_DIR        = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR        = os.path.join(BASE_DIR, "data")
+CZML_PATH       = os.path.join(DATA_DIR, "closures.czml")
+FACILITIES_PATH = os.path.join(DATA_DIR, "military_facilities.geojson")
+BOX_SCORE_PATH  = os.path.join(DATA_DIR, "box_score.json")
+GEO_CATALOG_PATH= os.path.join(DATA_DIR, "geo_catalog.json")
+JSON_OUT        = os.path.join(DATA_DIR, "proximity_alerts.json")
+HTML_OUT        = os.path.join(DATA_DIR, "proximity_alerts.html")
 
 # 1 degree latitude ≈ 60 nm; use this for degree-space buffer approximation
 NM_PER_DEG = 60.0
@@ -121,6 +123,53 @@ def load_facilities(path):
     return facilities
 
 
+# ── Orbital debris cross-reference ────────────────────────────────────────
+
+def load_box_score():
+    """Load box_score.json → dict keyed by SPADOC_CD."""
+    if not os.path.exists(BOX_SCORE_PATH):
+        return {}
+    with open(BOX_SCORE_PATH, encoding='utf-8') as f:
+        rows = json.load(f)
+    return {r.get('SPADOC_CD', '').strip(): r for r in rows if r.get('SPADOC_CD')}
+
+
+def load_geo_catalog():
+    """Load geo_catalog.json → list of satellite dicts."""
+    if not os.path.exists(GEO_CATALOG_PATH):
+        return []
+    with open(GEO_CATALOG_PATH, encoding='utf-8') as f:
+        return json.load(f)
+
+
+def get_debris_for_country(spadoc_cd, geo_catalog):
+    """
+    Return list of debris objects from geo_catalog matching a SPADOC_CD country code.
+    Matches on COUNTRY field (Space-Track uses SPADOC_CD as country code in geo_report).
+    """
+    return [
+        obj for obj in geo_catalog
+        if obj.get('COUNTRY', '').strip().upper() == spadoc_cd.upper()
+        and ('DEB' in obj.get('SATNAME', '').upper() or
+             obj.get('DISPLAY_TYPE') == 'DEBRIS')
+    ]
+
+
+def get_spadoc_from_source(source_text, box_score):
+    """
+    Try to match a closure source/description to a SPADOC_CD country code.
+    Checks if any country name from box_score appears in the source text.
+    Returns list of matching (SPADOC_CD, country_name) tuples.
+    """
+    source_upper = source_text.upper()
+    matches = []
+    for spadoc, row in box_score.items():
+        country = row.get('COUNTRY', '').upper()
+        if country and len(country) > 3 and country in source_upper:
+            matches.append((spadoc, row.get('COUNTRY', '')))
+    return matches
+
+
 # ── Main ───────────────────────────────────────────────────────────────────
 
 def run(radius_nm=50):
@@ -134,9 +183,15 @@ def run(radius_nm=50):
         print(f"ERROR: {FACILITIES_PATH} not found.")
         sys.exit(1)
 
-    entities   = load_czml_entities(CZML_PATH)
-    facilities = load_facilities(FACILITIES_PATH)
+    entities    = load_czml_entities(CZML_PATH)
+    facilities  = load_facilities(FACILITIES_PATH)
+    box_score   = load_box_score()
+    geo_catalog = load_geo_catalog()
     print(f"Loaded {len(entities)} closures, {len(facilities)} facilities")
+    if box_score:
+        print(f"Loaded {len(box_score)} countries from box_score.json")
+    if geo_catalog:
+        print(f"Loaded {len(geo_catalog)} GEO objects from geo_catalog.json")
 
     radius_deg = nm_to_deg(radius_nm)
     alerts = []
@@ -170,7 +225,7 @@ def run(radius_nm=50):
                     dist_deg = geom.distance(fac["point"])
                     dist_nm  = dist_deg * NM_PER_DEG
 
-                    alerts.append({
+                    alert = {
                         "closure_id":   entity.get("id", "?"),
                         "closure_name": name,
                         "source":       source,
@@ -183,7 +238,34 @@ def run(radius_nm=50):
                         "dist_nm":      round(dist_nm, 1),
                         "fac_lon":      fac["lon"],
                         "fac_lat":      fac["lat"],
-                    })
+                        "orbital_debris": []
+                    }
+
+                    # ── Orbital debris cross-reference ──────────────────
+                    # If closure is tagged SPACE_DEBRIS, find debris objects
+                    # from the same nation in the GEO catalog
+                    if geo_catalog and 'SPACE_DEBRIS' in tags.upper():
+                        # Try to identify nation from closure description
+                        desc = entity.get("description", "")
+                        country_matches = get_spadoc_from_source(
+                            name + " " + source + " " + desc[:500], box_score
+                        )
+                        for spadoc, country_name in country_matches[:3]:
+                            debris_objs = get_debris_for_country(spadoc, geo_catalog)
+                            for deb in debris_objs[:10]:  # cap at 10 per country
+                                alert["orbital_debris"].append({
+                                    "norad_id":   deb.get("NORAD_CAT_ID", ""),
+                                    "satname":    deb.get("SATNAME", ""),
+                                    "country":    deb.get("COUNTRY", ""),
+                                    "spadoc":     spadoc,
+                                    "launch":     deb.get("LAUNCH", ""),
+                                    "longitude":  deb.get("LONGITUDE_EST"),
+                                    "inclination":deb.get("INCLINATION", ""),
+                                    "apogee":     deb.get("APOGEE", ""),
+                                    "perigee":    deb.get("PERIGEE", ""),
+                                })
+
+                    alerts.append(alert)
             except Exception:
                 continue
 
@@ -218,6 +300,7 @@ def write_html(alerts, radius_nm, run_time):
         return "#44ff88"
 
     rows = ""
+    debris_section_rows = ""
     for a in alerts:
         color = dist_color(a["dist_nm"])
         tags_html = ""
@@ -227,18 +310,51 @@ def write_html(alerts, radius_nm, run_time):
                 f'padding:1px 4px;font-size:0.8em;color:#0af">{t}</span>'
                 for t in a["tags"].split(",") if t.strip()
             )
+        # Orbital debris badge
+        deb_count = len(a.get("orbital_debris", []))
+        deb_badge = (f'<span style="background:#3a0000;border:1px solid #f44;border-radius:3px;'
+                     f'padding:1px 4px;font-size:0.8em;color:#f44">'
+                     f'&#9762; {deb_count} DEB</span>') if deb_count else ''
+
         rows += f"""<tr>
             <td style="color:{color};font-weight:bold;padding:4px 8px">{a['dist_nm']} nm</td>
             <td style="padding:4px 8px;color:#cde">{a['facility']}</td>
             <td style="padding:4px 8px;color:#7ab">{a['component']}</td>
             <td style="padding:4px 8px;color:#cde">{a['closure_name']}</td>
             <td style="padding:4px 8px;color:#7ab">{a['source']}</td>
-            <td style="padding:4px 8px">{tags_html}</td>
+            <td style="padding:4px 8px">{tags_html} {deb_badge}</td>
             <td style="padding:4px 8px;color:#7ab">{a['start']}</td>
         </tr>"""
 
+        # Build debris detail rows
+        for deb in a.get("orbital_debris", []):
+            lon_str = f"{deb['longitude']:.1f}°E" if deb.get('longitude') is not None else "unknown"
+            debris_section_rows += f"""<tr>
+                <td style="color:#f44;padding:3px 8px">&#9762; DEB</td>
+                <td style="padding:3px 8px;color:#f88">{deb.get('satname','')}</td>
+                <td style="padding:3px 8px;color:#7ab">{deb.get('country','')} / {deb.get('spadoc','')}</td>
+                <td style="padding:3px 8px;color:#cde">{a['closure_name'][:40]}</td>
+                <td style="padding:3px 8px;color:#7ab">NORAD {deb.get('norad_id','')}</td>
+                <td style="padding:3px 8px;color:#7ab">Lon: {lon_str} | Inc: {deb.get('inclination','')}°</td>
+                <td style="padding:3px 8px;color:#7ab">{deb.get('launch','')}</td>
+            </tr>"""
+
     if not rows:
         rows = f'<tr><td colspan="7" style="color:#7ab;padding:12px">No alerts within {radius_nm} nm.</td></tr>'
+
+    debris_section = ""
+    if debris_section_rows:
+        debris_section = f"""
+<h2 style="color:#f44;font-size:0.95em;margin-top:24px;border-top:1px solid #3a0000;padding-top:12px">
+  &#9762; Orbital Debris Cross-Reference (SPACE_DEBRIS tagged closures)
+</h2>
+<table>
+  <thead><tr>
+    <th>Type</th><th>Object</th><th>Nation / SPADOC</th>
+    <th>Associated Closure</th><th>NORAD ID</th><th>Orbital Params</th><th>Launch</th>
+  </tr></thead>
+  <tbody>{debris_section_rows}</tbody>
+</table>"""
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -281,6 +397,7 @@ def write_html(alerts, radius_nm, run_time):
   </tr></thead>
   <tbody>{rows}</tbody>
 </table>
+{debris_section}
 </body>
 </html>"""
 
