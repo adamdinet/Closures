@@ -298,6 +298,119 @@
             background: #0d1a2e; border: 1px solid #1a4a7a; color: #7ab;
         }
         .src-badge.loaded { border-color: #0a8; color: #0fa; }
+
+        /* ── Intelligence Search Panel ───────────────────── */
+        #searchPanel {
+            position: absolute; top: 20px; right: 20px; z-index: 11;
+            background: rgba(10, 14, 22, 0.96);
+            color: white; padding: 14px;
+            border-radius: 10px;
+            border: 1px solid #0af;
+            width: 360px; min-width: 260px; min-height: 80px;
+            box-shadow: 0 4px 24px rgba(0,170,255,0.25);
+            overflow: hidden;
+            user-select: none;
+        }
+        #searchPanel h3 {
+            margin: 0 0 10px 0; color: #0af; font-size: 0.85em;
+            border-bottom: 1px solid #1a3a5c; padding-bottom: 6px;
+            cursor: grab; display: flex; align-items: center; justify-content: space-between;
+        }
+        #searchPanel h3:active { cursor: grabbing; }
+        #searchPanel .close-btn { cursor: pointer; color: #7ab; font-size: 1.1em; }
+        #searchPanel .close-btn:hover { color: #fff; }
+
+        /* Mode toggle */
+        .search-mode-row {
+            display: flex; gap: 4px; margin-bottom: 8px;
+        }
+        .search-mode-btn {
+            flex: 1; padding: 5px 4px; font-size: 0.7em; font-weight: bold;
+            border-radius: 4px; border: 1px solid #1a4a7a;
+            background: #0d1a2e; color: #7ab; cursor: pointer; transition: all 0.15s;
+            text-align: center;
+        }
+        .search-mode-btn.active { background: #0078d4; border-color: #0af; color: #fff; }
+        .search-mode-btn:hover  { border-color: #0af; color: #fff; }
+
+        /* Search input row */
+        .search-input-row {
+            display: flex; gap: 6px; margin-bottom: 8px;
+        }
+        #searchInput {
+            flex: 1; background: #111c2e; color: #e0f0ff;
+            border: 1px solid #1a4a7a; padding: 7px 10px;
+            border-radius: 5px; font-size: 0.82em;
+            outline: none; transition: border-color 0.15s;
+        }
+        #searchInput:focus { border-color: #0af; }
+        #searchInput::placeholder { color: #3a5a7a; }
+        #searchGoBtn {
+            background: #0078d4; color: #fff; border: none;
+            padding: 7px 14px; border-radius: 5px; cursor: pointer;
+            font-size: 0.82em; font-weight: bold; transition: background 0.2s;
+            white-space: nowrap;
+        }
+        #searchGoBtn:hover { background: #005a9e; }
+        #searchGoBtn:disabled { background: #1a3a5c; color: #7ab; cursor: default; }
+
+        /* Options row */
+        .search-opts-row {
+            display: flex; gap: 8px; margin-bottom: 8px; align-items: center;
+            font-size: 0.7em; color: #7ab;
+        }
+        .search-opts-row label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+        .search-opts-row input[type="number"] {
+            width: 52px; padding: 3px 6px; font-size: 0.9em;
+            background: #0d1a2e; border: 1px solid #1a4a7a; color: #e0f0ff;
+            border-radius: 4px; margin-bottom: 0;
+        }
+        .search-opts-row input[type="range"] { width: 70px; accent-color: #0af; }
+
+        /* Status / meta line */
+        #searchMeta {
+            font-size: 0.68em; color: #7ab; margin-bottom: 6px;
+            min-height: 14px;
+        }
+        #searchMeta .hit { color: #0af; font-weight: bold; }
+        #searchMeta .warn { color: #f80; }
+
+        /* Results list */
+        #searchResults {
+            overflow-y: auto; overflow-x: hidden;
+            max-height: 340px;
+            scrollbar-width: thin; scrollbar-color: #1a4a7a #0a0e16;
+        }
+        .sr-item {
+            padding: 6px 0; border-bottom: 1px solid #0d1a2e;
+            cursor: pointer; transition: background 0.1s;
+        }
+        .sr-item:last-child { border-bottom: none; }
+        .sr-item:hover { background: rgba(0,120,212,0.12); border-radius: 4px; padding-left: 4px; }
+        .sr-item .sr-name {
+            font-size: 0.8em; font-weight: bold; color: #cde;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sr-item .sr-meta {
+            font-size: 0.68em; color: #7ab; margin-top: 2px;
+            display: flex; gap: 8px; flex-wrap: wrap;
+        }
+        .sr-item .sr-score {
+            font-size: 0.68em; color: #0af; font-weight: bold; float: right;
+        }
+        .sr-item .sr-type-PAYLOAD     { color: #44ff88; }
+        .sr-item .sr-type-DEBRIS      { color: #ff4444; }
+        .sr-item .sr-type-ROCKET_BODY { color: #ff8800; }
+        .sr-item .sr-source-local     { color: #f80; }
+        .sr-item .sr-preview {
+            font-size: 0.65em; color: #556; margin-top: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sr-empty { font-size: 0.78em; color: #7ab; font-style: italic; padding: 8px 0; }
+        .sr-section-hdr {
+            font-size: 0.65em; color: #0af; text-transform: uppercase;
+            letter-spacing: 0.5px; padding: 6px 0 2px; font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -381,7 +494,52 @@
     <div class="btn-row" style="margin-top:4px">
         <button class="secondary" id="geoCopBtn" onclick="toggleGeoCop()" title="Plot GEO belt satellites from geo_catalog.json (run parse_orbital.py first)">🛰 GEO Orbital COP</button>
     </div>
+    <div class="btn-row" style="margin-top:4px">
+        <button class="secondary" id="searchToggleBtn" onclick="toggleSearchPanel()" title="Open Intelligence Search — query satellites, NOTAMs, and alerts">🔍 Intel Search</button>
+    </div>
 
+</div>
+
+<!-- ── Intelligence Search Panel ─────────────────────────── -->
+<div id="searchPanel" style="display:none;">
+    <div class="resize-handle n"  data-dir="n"></div>
+    <div class="resize-handle s"  data-dir="s"></div>
+    <div class="resize-handle e"  data-dir="e"></div>
+    <div class="resize-handle w"  data-dir="w"></div>
+    <div class="resize-handle nw" data-dir="nw"></div>
+    <div class="resize-handle ne" data-dir="ne"></div>
+    <div class="resize-handle sw" data-dir="sw"></div>
+    <div class="resize-handle se" data-dir="se"></div>
+    <h3>
+        <span>🔍 Intelligence Search</span>
+        <span class="close-btn" onclick="toggleSearchPanel()">✕</span>
+    </h3>
+
+    <!-- Mode selector -->
+    <div class="search-mode-row">
+        <div class="search-mode-btn active" data-mode="semantic" onclick="setSearchMode(this)">🧠 Semantic</div>
+        <div class="search-mode-btn"        data-mode="hybrid"   onclick="setSearchMode(this)">⚡ Hybrid</div>
+        <div class="search-mode-btn"        data-mode="local"    onclick="setSearchMode(this)">📋 Local</div>
+    </div>
+
+    <!-- Search input -->
+    <div class="search-input-row">
+        <input type="text" id="searchInput" placeholder="e.g. GPS satellites, missile range NOTAMs…"
+               onkeydown="if(event.key==='Enter') runSearch()">
+        <button id="searchGoBtn" onclick="runSearch()">Search</button>
+    </div>
+
+    <!-- Options -->
+    <div class="search-opts-row" id="searchOpts">
+        <label>Limit <input type="number" id="searchLimit" value="20" min="1" max="500"></label>
+        <label id="thresholdLabel">Min score <input type="range" id="searchThreshold" min="0" max="1" step="0.05" value="0.5"> <span id="thresholdVal">0.50</span></label>
+    </div>
+
+    <!-- Status line -->
+    <div id="searchMeta"></div>
+
+    <!-- Results -->
+    <div id="searchResults"><div class="sr-empty">Enter a query above to search satellites, NOTAMs, and alerts.</div></div>
 </div>
 
 <!-- Intel Tag Filter — floating bar above the timeline -->
@@ -454,6 +612,44 @@
     viewer.animation.container.style.bottom = '30px';
     viewer.animation.container.style.left   = '5px';
 
+    // ── Earth rotation (ICRF inertial frame) ───────────────
+    // Rotates the globe correctly relative to the fixed star background
+    // as the Cesium clock advances — matches real Earth rotation rate.
+    //
+    // Strategy: each preRender, compute the delta rotation between the
+    // previous clock time and the current clock time, then rotate the
+    // camera position/direction/up vectors by that delta.  This keeps
+    // the camera fully interactive (pan/zoom/orbit still work) while
+    // making the Earth spin under the stars.
+    let _lastIcrfTime = null;
+    const _icrfPrev   = new Cesium.Matrix3();
+    const _icrfCurr   = new Cesium.Matrix3();
+
+    viewer.scene.preRender.addEventListener(function(scene, time) {
+        if (scene.mode !== Cesium.SceneMode.SCENE3D) return;
+        if (!viewer.clock.shouldAnimate) { _lastIcrfTime = null; return; }
+
+        const curr = Cesium.Transforms.computeIcrfToFixedMatrix(time, _icrfCurr);
+        if (!Cesium.defined(curr)) return;
+
+        if (_lastIcrfTime !== null) {
+            const prev = Cesium.Transforms.computeIcrfToFixedMatrix(_lastIcrfTime, _icrfPrev);
+            if (Cesium.defined(prev)) {
+                // delta = curr * inverse(prev)  — rotation from prev frame to curr frame
+                const prevInv = Cesium.Matrix3.transpose(prev, new Cesium.Matrix3());
+                const delta   = Cesium.Matrix3.multiply(curr, prevInv, new Cesium.Matrix3());
+
+                const cam = scene.camera;
+                cam.position  = Cesium.Matrix3.multiplyByVector(delta, cam.position,  cam.position);
+                cam.direction = Cesium.Matrix3.multiplyByVector(delta, cam.direction, cam.direction);
+                cam.up        = Cesium.Matrix3.multiplyByVector(delta, cam.up,        cam.up);
+                cam.right     = Cesium.Matrix3.multiplyByVector(delta, cam.right,     cam.right);
+            }
+        }
+
+        _lastIcrfTime = Cesium.JulianDate.clone(time);
+    });
+
     // ── State ──────────────────────────────────────────────
     let mainDataSource = null;
     let allEntities    = [];   // cache of all entity objects
@@ -475,7 +671,7 @@
     let facilitiesDataSource = null;
     let facilitiesVisible    = false;
 
-    /** Color a facility marker by military component */
+    /** Color a facility outline by military component */
     function facilityColor(component) {
         const c = (component || '').toUpperCase();
         if (c.includes('USAF'))  return Cesium.Color.fromCssColorString('#4da6ff');  // blue
@@ -486,6 +682,22 @@
         if (c.includes('USSF')) return Cesium.Color.fromCssColorString('#cc44ff');  // purple
         if (c.includes('NASA')) return Cesium.Color.fromCssColorString('#ffaa00');  // orange
         return Cesium.Color.fromCssColorString('#ffff44');                           // yellow = partner/other
+    }
+
+    /**
+     * Approximate base footprint radius in metres by facility type.
+     * These are representative sizes — not exact boundaries.
+     */
+    function facilityRadiusM(type) {
+        switch (type) {
+            case 'Missile Range':   return 80000;   // ~80 km — very large ranges
+            case 'Test Range':      return 40000;   // ~40 km
+            case 'Launch Site':     return 8000;    // ~8 km
+            case 'Training Range':  return 25000;   // ~25 km
+            case 'Missile Defense': return 15000;
+            case 'Intelligence':    return 3000;
+            default:                return 5000;    // generic base ~5 km
+        }
     }
 
     /** Load and show / hide the military facilities GeoJSON layer */
@@ -512,49 +724,67 @@
                 // Deduplicate by name before adding to prevent "entity already exists" errors
                 const seenFacIds = new Set();
                 geoJson.features.forEach(f => {
-                    const props = f.properties || {};
+                    const props  = f.properties || {};
                     const coords = f.geometry && f.geometry.coordinates;
                     if (!coords) return;
                     const facId = 'FAC_' + (props.name || '').replace(/\W/g, '_');
                     if (seenFacIds.has(facId)) return;
                     seenFacIds.add(facId);
 
-                    const color = facilityColor(props.component);
-                    const typeIcon = props.type === 'Launch Site'    ? '\u{1F680}' :
-                                     props.type === 'Missile Range'  ? '\u{1F3AF}' :
-                                     props.type === 'Test Range'     ? '\u{1F52C}' :
+                    const color   = facilityColor(props.component);
+                    const radiusM = facilityRadiusM(props.type);
+
+                    const typeIcon = props.type === 'Launch Site'    ? '🚀' :
+                                     props.type === 'Missile Range'  ? '🎯' :
+                                     props.type === 'Test Range'     ? '🔬' :
                                      props.type === 'Training Range' ? '[TRN]' :
                                      props.type === 'Intelligence'   ? '[INT]' :
                                      props.type === 'Missile Defense'? '[MSD]' : '[FAC]';
 
+                    const descHtml =
+                        `<b>${props.name}</b><br/>` +
+                        `<b>Component:</b> ${props.component || 'N/A'}<br/>` +
+                        `<b>Type:</b> ${props.type || 'N/A'}<br/>` +
+                        `<b>State/Country:</b> ${props.state || 'N/A'}<br/>` +
+                        `<b>Notes:</b> ${props.notes || ''}`;
+
+                    const centerPos = Cesium.Cartesian3.fromDegrees(coords[0], coords[1]);
+
+                    // ── Outline ellipse (base footprint ring) ──────────
                     facilitiesDataSource.entities.add({
-                        id: 'FAC_' + props.name.replace(/\W/g, '_'),
-                        name: props.name,
-                        description:
-                            `<b>${props.name}</b><br/>` +
-                            `<b>Component:</b> ${props.component || 'N/A'}<br/>` +
-                            `<b>Type:</b> ${props.type || 'N/A'}<br/>` +
-                            `<b>State/Country:</b> ${props.state || 'N/A'}<br/>` +
-                            `<b>Notes:</b> ${props.notes || ''}`,
-                        position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1]),
+                        id:          facId,
+                        name:        props.name,
+                        description: descHtml,
+                        position:    centerPos,
+                        ellipse: {
+                            semiMajorAxis: radiusM,
+                            semiMinorAxis: radiusM,
+                            height:        0,
+                            fill:          false,
+                            outline:       true,
+                            outlineColor:  color.withAlpha(0.85),
+                            outlineWidth:  2,
+                            numberOfVerticalLines: 0,
+                        },
+                        // Small centre dot so the entity is still pickable at all zoom levels
                         point: {
-                            pixelSize: 10,
-                            color: color,
-                            outlineColor: Cesium.Color.BLACK,
+                            pixelSize:   6,
+                            color:       color.withAlpha(0.9),
+                            outlineColor: Cesium.Color.BLACK.withAlpha(0.6),
                             outlineWidth: 1,
-                            scaleByDistance: new Cesium.NearFarScalar(1e4, 1.5, 1e7, 0.6),
-                            disableDepthTestDistance: 0   // hide when behind the globe
+                            scaleByDistance: new Cesium.NearFarScalar(1e4, 1.2, 1e7, 0.4),
+                            disableDepthTestDistance: 0
                         },
                         label: {
-                            text: typeIcon + ' ' + props.name,
-                            font: '11px sans-serif',
-                            fillColor: color,
+                            text:        typeIcon + ' ' + props.name,
+                            font:        '11px sans-serif',
+                            fillColor:   color,
                             outlineColor: Cesium.Color.BLACK,
                             outlineWidth: 2,
-                            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                            style:       Cesium.LabelStyle.FILL_AND_OUTLINE,
                             pixelOffset: new Cesium.Cartesian2(0, -18),
                             scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 5e6, 0.0),
-                            disableDepthTestDistance: 0   // hide when behind the globe
+                            disableDepthTestDistance: 0
                         }
                     });
                 });
@@ -875,6 +1105,19 @@
                 <span class="ti-value">${value}</span>
             </div>`
         ).join('');
+
+        // "Find Similar" button — uses /api/semantic/similar/{norad_id}
+        const noradId = sat.NORAD_CAT_ID || sat.OBJECT_NUMBER;
+        if (noradId) {
+            content.innerHTML +=
+                `<div style="margin-top:8px;padding-top:6px;border-top:1px solid #1a3a5c">
+                    <button onclick="findSimilarSatellites(${noradId})"
+                        style="width:100%;background:#0d2540;color:#0af;border:1px solid #1a4a7a;
+                               padding:6px;border-radius:5px;cursor:pointer;font-size:0.75em;font-weight:bold;">
+                        🔍 Find Similar Satellites
+                    </button>
+                </div>`;
+        }
 
         panel.style.display = 'block';
     }
@@ -1848,6 +2091,397 @@
 
     makeResizable(document.getElementById('targetInfoPanel'),  { minW: 200, minH: 120 });
     makeResizable(document.getElementById('proximityPanel'),   { minW: 200, minH: 120 });
+    makeResizable(document.getElementById('searchPanel'),      { minW: 260, minH: 160 });
+
+    // ── Intelligence Search ────────────────────────────────
+    // FastAPI search service runs on port 8001 (Sky-Net web server uses 8000).
+    // Start with: docker compose up -d  (in C:\Users\ADinet\flotsom-main\flotsom-main)
+    const SEARCH_API = 'http://localhost:8001';
+    let searchMode   = 'semantic';   // 'semantic' | 'hybrid' | 'local'
+    let _searchHighlightIds = new Set();  // GEO entity IDs currently highlighted
+
+    /** Check API stats on panel open and show coverage info */
+    async function fetchSearchStats() {
+        try {
+            const resp = await fetch(`${SEARCH_API}/api/semantic/stats`, { signal: AbortSignal.timeout(3000) });
+            if (!resp.ok) return;
+            const s = await resp.json();
+            const pct = s.coverage_percentage != null ? s.coverage_percentage.toFixed(1) : '?';
+            document.getElementById('searchMeta').innerHTML =
+                `API online · <span class="hit">${(s.vectorized_satellites || 0).toLocaleString()}</span>` +
+                ` of ${(s.total_satellites || 0).toLocaleString()} satellites vectorized (${pct}% coverage)`;
+        } catch (e) {
+            document.getElementById('searchMeta').innerHTML =
+                `<span class="warn">⚠ Search API offline — make sure FastAPI is running at ${SEARCH_API}</span>`;
+        }
+    }
+
+    /** Toggle the search panel open/closed */
+    function toggleSearchPanel() {
+        const panel = document.getElementById('searchPanel');
+        const btn   = document.getElementById('searchToggleBtn');
+        const open  = panel.style.display === 'none' || panel.style.display === '';
+        panel.style.display = open ? 'block' : 'none';
+        if (btn) btn.classList.toggle('on', open);
+        if (open) fetchSearchStats();
+    }
+
+    /**
+     * Find satellites similar to a given NORAD ID.
+     * GET /api/semantic/similar/{satellite_id}?limit=10
+     * Called from the Target Info panel "Find Similar" button.
+     */
+    async function findSimilarSatellites(noradId) {
+        const limit = 10;
+        document.getElementById('searchMeta').innerHTML = `<span style="color:#7ab">Finding similar to NORAD ${noradId}…</span>`;
+        document.getElementById('searchResults').innerHTML = '';
+
+        // Open the search panel if closed
+        const panel = document.getElementById('searchPanel');
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+            document.getElementById('searchToggleBtn').classList.add('on');
+        }
+
+        try {
+            const resp = await fetch(`${SEARCH_API}/api/semantic/similar/${noradId}?limit=${limit}`);
+            if (!resp.ok) throw new Error(`API error ${resp.status}`);
+            const data = await resp.json();
+
+            const results = data.results || [];
+            const meta    = data.metadata || {};
+            document.getElementById('searchMeta').innerHTML =
+                `<span class="hit">${results.length}</span> satellites similar to NORAD ${noradId}` +
+                (meta.query_time_ms ? ` · ${meta.query_time_ms}ms` : '');
+
+            const satIds = data.satellite_ids || results.map(r => r.satellite_id);
+            highlightGeoSatellites(satIds);
+            renderSearchResults(results, [], 'semantic');
+        } catch (err) {
+            document.getElementById('searchMeta').innerHTML =
+                `<span class="warn">⚠ ${err.message}</span>`;
+            document.getElementById('searchResults').innerHTML =
+                `<div class="sr-empty">Could not reach search API at ${SEARCH_API}.</div>`;
+        }
+    }
+
+    /** Switch search mode and update UI */
+    function setSearchMode(el) {
+        document.querySelectorAll('.search-mode-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+        searchMode = el.dataset.mode;
+
+        // Show/hide threshold slider (only relevant for semantic)
+        const threshRow = document.getElementById('thresholdLabel');
+        if (threshRow) threshRow.style.display = searchMode === 'semantic' ? '' : 'none';
+    }
+
+    // Live threshold display
+    const threshInput = document.getElementById('searchThreshold');
+    const threshVal   = document.getElementById('thresholdVal');
+    if (threshInput) {
+        threshInput.addEventListener('input', function() {
+            threshVal.textContent = parseFloat(this.value).toFixed(2);
+        });
+    }
+
+    /** Main search dispatcher */
+    async function runSearch() {
+        const query = (document.getElementById('searchInput').value || '').trim();
+        if (!query) return;
+
+        const btn = document.getElementById('searchGoBtn');
+        btn.disabled = true;
+        btn.textContent = '…';
+        document.getElementById('searchMeta').innerHTML = '<span style="color:#7ab">Searching…</span>';
+        document.getElementById('searchResults').innerHTML = '';
+
+        try {
+            if (searchMode === 'semantic') {
+                await runSemanticSearch(query);
+            } else if (searchMode === 'hybrid') {
+                await runHybridSearch(query);
+            } else {
+                runLocalSearch(query);
+            }
+        } catch (err) {
+            document.getElementById('searchMeta').innerHTML =
+                `<span class="warn">⚠ ${err.message || 'Search failed'}</span>`;
+            document.getElementById('searchResults').innerHTML =
+                `<div class="sr-empty">Could not reach search API at ${SEARCH_API}.<br>Make sure the FastAPI service is running.</div>`;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Search';
+        }
+    }
+
+    /** POST /api/semantic/query */
+    async function runSemanticSearch(query) {
+        const limit     = parseInt(document.getElementById('searchLimit').value) || 20;
+        const threshold = parseFloat(document.getElementById('searchThreshold').value) || 0.5;
+
+        const resp = await fetch(`${SEARCH_API}/api/semantic/query`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ query, limit, threshold })
+        });
+        if (!resp.ok) throw new Error(`API error ${resp.status}`);
+        const data = await resp.json();
+
+        const results  = data.results  || [];
+        const meta     = data.metadata || {};
+        const satIds   = data.satellite_ids || results.map(r => r.satellite_id);
+
+        document.getElementById('searchMeta').innerHTML =
+            `<span class="hit">${results.length}</span> satellite results` +
+            (meta.query_time_ms ? ` · ${meta.query_time_ms}ms` : '') +
+            (meta.has_more ? ' · <span class="warn">more available</span>' : '') +
+            ` · model: ${meta.embedding_model || 'unknown'}`;
+
+        // Highlight matching GEO entities on globe
+        highlightGeoSatellites(satIds);
+
+        // Also run local search in parallel to show NOTAMs/alerts
+        const localItems = searchLocalEntities(query);
+
+        renderSearchResults(results, localItems, 'semantic');
+    }
+
+    /** POST /api/hybrid/search */
+    async function runHybridSearch(query) {
+        const limit = parseInt(document.getElementById('searchLimit').value) || 50;
+
+        const resp = await fetch(`${SEARCH_API}/api/hybrid/search`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                query,
+                max_results:         limit,
+                offset:              0,
+                return_total_count:  true,
+                enable_validation:   false
+            })
+        });
+        if (!resp.ok) throw new Error(`API error ${resp.status}`);
+        const data = await resp.json();
+
+        // Normalise hybrid result fields to match semantic result shape
+        const results = (data.results || []).map(r => ({
+            satellite_id:    r.norad_cat_id   || r.satellite_id,
+            name:            r.object_name    || r.name || r.satname || '—',
+            country:         r.country        || r.country_code || '—',
+            object_type:     r.object_type    || r.display_type || '—',
+            launch_date:     r.launch_date    || r.launch || '—',
+            object_status:   r.object_status  || '—',
+            period:          r.period,
+            inclination:     r.inclination,
+            apogee:          r.apogee,
+            perigee:         r.perigee,
+            rcs_size:        r.rcs_size       || '—',
+            intldes:         r.intldes        || r.intl_des || '—',
+            similarity_score: r.similarity_score || null,
+            content_preview: r.content_preview || ''
+        }));
+
+        // Build meta line with filter info
+        const meta    = data.metadata || {};
+        const pag     = meta.pagination || {};
+        const total   = pag.total_count || meta.total_results || results.length;
+        const conf    = meta.confidence_score != null ? ` · confidence ${(meta.confidence_score * 100).toFixed(0)}%` : '';
+        const filters = meta.filters_applied  ? ` · filters: ${JSON.stringify(meta.filters_applied).substring(0, 80)}` : '';
+        const qtime   = meta.query_time_ms    ? ` · ${meta.query_time_ms}ms` : '';
+
+        document.getElementById('searchMeta').innerHTML =
+            `<span class="hit">${results.length}</span> of <span class="hit">${total}</span> hybrid results` +
+            conf + qtime +
+            (filters ? `<br><span style="color:#556;font-size:0.9em">${filters}</span>` : '');
+
+        const satIds = data.satellite_ids || results.map(r => r.satellite_id).filter(Boolean);
+        highlightGeoSatellites(satIds);
+
+        const localItems = searchLocalEntities(query);
+        renderSearchResults(results, localItems, 'hybrid');
+    }
+
+    /** Local-only search — filters allEntities + proximity alerts by text */
+    function runLocalSearch(query) {
+        const items = searchLocalEntities(query);
+        document.getElementById('searchMeta').innerHTML =
+            `<span class="hit">${items.length}</span> local matches (NOTAMs / alerts / facilities)`;
+        renderSearchResults([], items, 'local');
+    }
+
+    /**
+     * Search allEntities (NOTAMs/closures) and facilitiesDataSource by text.
+     * Returns array of { name, type, source, id, entity }
+     */
+    function searchLocalEntities(query) {
+        const q = query.toLowerCase();
+        const hits = [];
+
+        // Search CZML closure entities
+        allEntities.forEach(entity => {
+            if (entity.id === 'document') return;
+            const name = (entity.name || '').toLowerCase();
+            const desc = (() => {
+                try {
+                    const d = entity.description;
+                    if (!d) return '';
+                    if (typeof d.getValue === 'function') return String(d.getValue(viewer.clock.currentTime) || '').toLowerCase();
+                    return String(d).toLowerCase();
+                } catch (e) { return ''; }
+            })();
+            const tags = String(getProp(entity, 'tags') || '').toLowerCase();
+            const cat  = String(getProp(entity, 'category') || '').toLowerCase();
+            const src  = String(getProp(entity, 'source') || '').toLowerCase();
+
+            if (name.includes(q) || desc.includes(q) || tags.includes(q) || cat.includes(q) || src.includes(q)) {
+                hits.push({
+                    id:     entity.id,
+                    name:   entity.name || entity.id,
+                    type:   getProp(entity, 'category') || 'closure',
+                    source: getProp(entity, 'source') || 'NOTAM',
+                    entity: entity
+                });
+            }
+        });
+
+        // Search facility entities
+        if (facilitiesDataSource) {
+            facilitiesDataSource.entities.values.forEach(entity => {
+                const name = (entity.name || '').toLowerCase();
+                if (name.includes(q)) {
+                    hits.push({
+                        id:     entity.id,
+                        name:   entity.name,
+                        type:   'Military Facility',
+                        source: 'HIFLD',
+                        entity: entity
+                    });
+                }
+            });
+        }
+
+        return hits;
+    }
+
+    /**
+     * Highlight GEO satellite entities on the globe by NORAD ID array.
+     * Restores previous highlights first.
+     */
+    function highlightGeoSatellites(noradIds) {
+        // Restore previously highlighted entities
+        _searchHighlightIds.forEach(eid => {
+            const e = geoCopDataSource && geoCopDataSource.entities.getById(eid);
+            if (e && e._searchOrigColor) {
+                try { e.point.color.setValue(e._searchOrigColor); } catch (_) {}
+                try { e.point.pixelSize.setValue(e._searchOrigSize || 8); } catch (_) {}
+                delete e._searchOrigColor;
+                delete e._searchOrigSize;
+            }
+        });
+        _searchHighlightIds.clear();
+
+        if (!geoCopDataSource || !noradIds || noradIds.length === 0) return;
+
+        const idSet = new Set(noradIds.map(id => String(id)));
+        geoCopDataSource.entities.values.forEach(entity => {
+            // GEO entity IDs are "GEO_<NORAD_ID>" or contain the NORAD ID
+            const norad = String(entity.id).replace('GEO_', '');
+            if (!idSet.has(norad)) return;
+
+            _searchHighlightIds.add(entity.id);
+            if (entity.point) {
+                try {
+                    entity._searchOrigColor = entity.point.color.getValue(viewer.clock.currentTime).clone();
+                    entity._searchOrigSize  = entity.point.pixelSize.getValue(viewer.clock.currentTime);
+                    entity.point.color.setValue(Cesium.Color.YELLOW.withAlpha(1.0));
+                    entity.point.pixelSize.setValue(14);
+                } catch (_) {}
+            }
+        });
+    }
+
+    /**
+     * Render search results into #searchResults.
+     * @param {Array} satResults  — satellite API results
+     * @param {Array} localItems  — local NOTAM/facility matches
+     * @param {string} mode
+     */
+    function renderSearchResults(satResults, localItems, mode) {
+        const container = document.getElementById('searchResults');
+        let html = '';
+
+        // ── Satellite results ──────────────────────────────
+        if (satResults.length > 0) {
+            if (localItems.length > 0) html += '<div class="sr-section-hdr">🛰 Satellites</div>';
+            satResults.forEach(r => {
+                const typeClass = `sr-type-${(r.object_type || '').replace(' ', '_')}`;
+                const score     = r.similarity_score != null
+                    ? `<span class="sr-score">${(r.similarity_score * 100).toFixed(0)}%</span>` : '';
+                html += `<div class="sr-item" onclick="flyToSatResult(${r.satellite_id})">
+                    ${score}
+                    <div class="sr-name">${r.name || '—'}</div>
+                    <div class="sr-meta">
+                        <span class="${typeClass}">${r.object_type || '—'}</span>
+                        <span>${r.country || '—'}</span>
+                        <span>${r.launch_date || '—'}</span>
+                        ${r.satellite_id ? `<span style="color:#556">NORAD ${r.satellite_id}</span>` : ''}
+                    </div>
+                    ${r.content_preview ? `<div class="sr-preview">${r.content_preview.substring(0, 120)}</div>` : ''}
+                </div>`;
+            });
+        }
+
+        // ── Local NOTAM / facility results ─────────────────
+        if (localItems.length > 0) {
+            if (satResults.length > 0) html += '<div class="sr-section-hdr">📋 Local (NOTAMs / Facilities)</div>';
+            localItems.forEach(item => {
+                html += `<div class="sr-item sr-source-local" onclick="flyToLocalResult('${item.id.replace(/'/g,"\\'")}')">
+                    <div class="sr-name">${item.name}</div>
+                    <div class="sr-meta">
+                        <span>${item.type}</span>
+                        <span style="color:#556">${item.source}</span>
+                    </div>
+                </div>`;
+            });
+        }
+
+        if (!html) {
+            html = '<div class="sr-empty">No results found. Try a different query or lower the similarity threshold.</div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    /** Fly to a GEO satellite by NORAD ID */
+    function flyToSatResult(noradId) {
+        if (!geoCopDataSource) return;
+        const eid = 'GEO_' + String(noradId);
+        const entity = geoCopDataSource.entities.getById(eid);
+        if (entity) {
+            viewer.flyTo(entity, { duration: 1.5 });
+            showTargetInfo(entity);
+        }
+    }
+
+    /** Fly to a local NOTAM/facility entity by ID */
+    function flyToLocalResult(entityId) {
+        // Try closure entities first
+        const czmlEntity = allEntities.find(e => e.id === entityId);
+        if (czmlEntity) {
+            viewer.flyTo(czmlEntity, { duration: 1.5 });
+            showProximity(czmlEntity);
+            return;
+        }
+        // Try facility entities
+        if (facilitiesDataSource) {
+            const facEntity = facilitiesDataSource.entities.getById(entityId);
+            if (facEntity) {
+                viewer.flyTo(facEntity, { duration: 1.5 });
+            }
+        }
+    }
 </script>
 </body>
 </html>
