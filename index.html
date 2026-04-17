@@ -162,6 +162,19 @@
         #proximityPanel .close-btn:hover { color: #fff; }
         #proximityPanel .no-fac { color: #7ab; font-size: 0.78em; font-style: italic; }
 
+        /* Go/No-Go weather badge */
+        .gonogo-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 0.75em; font-weight: bold; margin-left: 6px;
+            vertical-align: middle; letter-spacing: 0.5px;
+        }
+        .gonogo-GO      { background: #0d3a1a; border: 1px solid #44ff88; color: #44ff88; }
+        .gonogo-CAUTION { background: #3a3000; border: 1px solid #ffcc00; color: #ffcc00; }
+        .gonogo-DEGRADED{ background: #3a1a00; border: 1px solid #ff8800; color: #ff8800; }
+        .gonogo-HOLD    { background: #3a0000; border: 1px solid #ff4444; color: #ff4444; }
+        .weather-detail { font-size: 0.72em; color: #7ab; margin-top: 4px; line-height: 1.5; }
+        .weather-reason { color: #f80; font-size: 0.7em; }
+
         #customDateContainer { display: none; }
         #customDateContainer label { margin-top: 4px; }
 
@@ -248,6 +261,9 @@
     <div class="btn-row" style="margin-top:6px">
         <button class="secondary" onclick="openAlertReport()" title="Open proximity alert HTML report">⚠ Alert Report</button>
         <button class="secondary" onclick="loadProximityAlerts()" title="Highlight facilities with active proximity alerts on globe">🎯 Show Alerts</button>
+    </div>
+    <div class="btn-row" style="margin-top:4px">
+        <button class="secondary" id="weatherBtn" onclick="toggleWeatherLayer()" title="Load Go/No-Go weather assessment (run fetch_weather.py first)">🌤 Weather Go/No-Go</button>
     </div>
 
     <div id="tagFilterSection">
@@ -521,15 +537,15 @@
                     const icon = d.props.type === 'Launch Site'    ? '🚀' :
                                  d.props.type === 'Missile Range'  ? '🎯' :
                                  d.props.type === 'Test Range'     ? '🔬' :
-                                 d.props.type === 'Training Range' ? '⚔️' :
-                                 d.props.type === 'Intelligence'   ? '👁' :
-                                 d.props.type === 'Missile Defense'? '🛡' : '🏛';
+                                 d.props.type === 'Training Range' ? '[TRN]' :
+                                 d.props.type === 'Intelligence'   ? '[INT]' :
+                                 d.props.type === 'Missile Defense'? '[MSD]' : '🏛';
                     return `<div class="prox-item">
                         <span class="prox-name">${icon} ${d.props.name}</span>
                         <span class="prox-comp">${d.props.component || ''}</span>
                         <span class="prox-dist ${distClass}">${Math.round(d.nm)} nm</span>
                     </div>`;
-                }).join('');
+                }).join('') + getWeatherHTML(entity.id);
             })
             .catch(() => {
                 listEl.innerHTML = '<div class="no-fac">Load facilities layer first.</div>';
@@ -574,6 +590,143 @@
 
     // Track whether alert highlights are currently active
     let alertsActive = false;
+
+    // ── Weather Go/No-Go Layer ─────────────────────────────
+    let weatherData    = null;   // loaded from data/weather.json
+    let weatherActive  = false;  // toggle state
+
+    /**
+     * Load weather.json and toggle Go/No-Go overlays on the globe.
+     * - Adds colored label overlays to closure entities
+     * - Updates the proximity panel to show weather details when a closure is clicked
+     */
+    async function toggleWeatherLayer() {
+        const btn = document.getElementById('weatherBtn');
+
+        // Toggle OFF
+        if (weatherActive) {
+            weatherActive = false;
+            btn.textContent = '🌤 Weather Go/No-Go';
+            btn.classList.remove('on');
+            // Remove weather labels from all entities
+            allEntities.forEach(e => {
+                if (e._weatherLabel) {
+                    e.label = e._weatherLabel;
+                    delete e._weatherLabel;
+                }
+            });
+            document.getElementById('systemStatus').innerText = '● System Live | Data Synced';
+            document.getElementById('systemStatus').style.color = '#0f0';
+            return;
+        }
+
+        // Load weather.json
+        try {
+            btn.textContent = '🌤 Loading weather...';
+            const resp = await fetch('./data/weather.json?v=' + Date.now());
+            if (!resp.ok) {
+                btn.textContent = '🌤 Weather Go/No-Go';
+                alert('No weather data found.\nRun: python scripts/fetch_weather.py');
+                return;
+            }
+            weatherData = await resp.json();
+            const closures = weatherData.closures || {};
+            const total = Object.keys(closures).length;
+
+            // Apply Go/No-Go color overlays to entity labels
+            let goCount = 0, holdCount = 0, cautionCount = 0;
+            allEntities.forEach(entity => {
+                const eid = entity.id;
+                const wx = closures[eid];
+                if (!wx) return;
+
+                const gn = wx.go_nogo;
+                if (!gn) return;
+
+                // Save original label
+                if (!entity._weatherLabel) {
+                    entity._weatherLabel = entity.label;
+                }
+
+                // Add Go/No-Go suffix to label text
+                const statusEmoji = gn.status === 'GO'           ? '✅' :
+                                    gn.status === 'CAUTION'      ? '⚠️' :
+                                    gn.status === 'DEGRADED'     ? '🟠' :
+                                    gn.status === 'WEATHER HOLD' ? '🚫' : '';
+
+                const origName = entity.name || eid;
+                if (entity.label) {
+                    try {
+                        entity.label.text = new Cesium.ConstantProperty(
+                            `${statusEmoji} ${origName}`
+                        );
+                        entity.label.fillColor = new Cesium.ConstantProperty(
+                            Cesium.Color.fromCssColorString(gn.color)
+                        );
+                    } catch (e) { /* ignore */ }
+                }
+
+                if (gn.status === 'GO')           goCount++;
+                else if (gn.status === 'CAUTION' || gn.status === 'DEGRADED') cautionCount++;
+                else holdCount++;
+            });
+
+            weatherActive = true;
+            btn.textContent = '🌤 Hide Weather';
+            btn.classList.add('on');
+
+            const summary = weatherData.summary || {};
+            document.getElementById('systemStatus').innerText =
+                `● Weather: ${goCount} GO | ${cautionCount} CAUTION | ${holdCount} HOLD`;
+            document.getElementById('systemStatus').style.color = '#0af';
+            document.getElementById('countStatus').innerHTML =
+                `<span style="color:#0af">🌤 ${total} closures assessed | ` +
+                `<span style="color:#44ff88">${goCount} GO</span> | ` +
+                `<span style="color:#ffcc00">${cautionCount} CAUTION</span> | ` +
+                `<span style="color:#ff4444">${holdCount} HOLD</span></span>`;
+
+        } catch (e) {
+            console.error('Weather load error:', e);
+            btn.textContent = '🌤 Weather Go/No-Go';
+            alert('Weather load failed: ' + e.message);
+        }
+    }
+
+    /**
+     * Get weather HTML for a closure entity (used in proximity panel).
+     * Returns empty string if no weather data loaded.
+     */
+    function getWeatherHTML(entityId) {
+        if (!weatherData || !weatherActive) return '';
+        const closures = weatherData.closures || {};
+        const wx = closures[entityId];
+        if (!wx) return '';
+
+        const w  = wx.weather  || {};
+        const gn = wx.go_nogo  || {};
+        const statusClass = 'gonogo-' + (gn.status || 'GO').replace(' ', '-').replace('WEATHER-HOLD', 'HOLD');
+
+        const details = [
+            w.weather_desc ? `☁ ${w.weather_desc}` : '',
+            w.wind_speed_kn   != null ? `💨 ${w.wind_speed_kn.toFixed(0)}kn` : '',
+            w.wave_height     != null ? `🌊 ${w.wave_height.toFixed(1)}m` : '',
+            w.cloud_cover_pct != null ? `☁ ${w.cloud_cover_pct.toFixed(0)}%` : '',
+            w.temperature_c   != null ? `🌡 ${w.temperature_c.toFixed(1)}°C` : '',
+        ].filter(Boolean).join('  ');
+
+        const reasons = (gn.reasons || []).map(r =>
+            `<div class="weather-reason">⚠ ${r}</div>`
+        ).join('');
+
+        return `
+            <div style="margin-top:8px;padding-top:6px;border-top:1px solid #1a3a5c">
+                <b style="color:#0af">Go/No-Go Assessment</b>
+                <span class="gonogo-badge ${statusClass}">${gn.status || '?'} ${gn.score || 0}%</span>
+                <div class="weather-detail">${details}</div>
+                ${reasons}
+                <div style="font-size:0.65em;color:#555;margin-top:2px">via OpenMeteo · ${w.fetched_at || ''}</div>
+            </div>`;
+    }
 
     /** Save original facility marker colors before highlighting. */
     function saveFacilityColors() {

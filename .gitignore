@@ -22,6 +22,7 @@ data/proximity_alerts.json
 data/proximity_alerts.html
 data/delta_report.txt
 data/delta_report.html
+data/weather.json
 
 # Keep these tracked (static reference data):
 # data/raw_notams.txt          ← local NOTAM text file (keep)
