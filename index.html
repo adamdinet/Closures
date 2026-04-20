@@ -411,6 +411,97 @@
             font-size: 0.65em; color: #0af; text-transform: uppercase;
             letter-spacing: 0.5px; padding: 6px 0 2px; font-weight: bold;
         }
+
+        /* ── Debris Forecast Panel ───────────────────────── */
+        #debrisPanel {
+            display: none;
+            position: absolute; top: 20px; right: 20px; z-index: 12;
+            background: rgba(10, 14, 22, 0.97);
+            color: white; padding: 14px;
+            border-radius: 10px;
+            border: 1px solid #f85149;
+            width: 520px; min-width: 320px; min-height: 120px;
+            box-shadow: 0 4px 28px rgba(248,81,73,0.25);
+            overflow: hidden;
+            user-select: none;
+        }
+        #debrisPanel h3 {
+            margin: 0 0 8px 0; color: #f85149; font-size: 0.85em;
+            border-bottom: 1px solid #3a1a1a; padding-bottom: 6px;
+            cursor: grab; display: flex; align-items: center; justify-content: space-between;
+        }
+        #debrisPanel h3:active { cursor: grabbing; }
+        #debrisPanel .close-btn { cursor: pointer; color: #7ab; font-size: 1.1em; }
+        #debrisPanel .close-btn:hover { color: #fff; }
+        #debrisPanel .panel-scroll {
+            overflow-y: auto; overflow-x: hidden;
+            max-height: calc(80vh - 80px);
+            scrollbar-width: thin; scrollbar-color: #3a1a1a #0a0e16;
+        }
+        /* Horizon tabs */
+        .dp-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+        .dp-tab {
+            padding: 4px 12px; border-radius: 4px; font-size: 0.72em; font-weight: bold;
+            border: 1px solid #3a1a1a; background: #0d1a2e; color: #7ab;
+            cursor: pointer; transition: all .15s;
+        }
+        .dp-tab.active { background: #3a0000; border-color: #f85149; color: #f85149; }
+        .dp-tab:hover  { border-color: #f85149; color: #f85149; }
+        /* Stats row */
+        .dp-stats { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+        .dp-stat { background: #0d1a2e; border: 1px solid #1a3a5c; border-radius: 6px; padding: 6px 10px; min-width: 80px; }
+        .dp-stat .dv { font-size: 1.2em; font-weight: bold; color: #f85149; }
+        .dp-stat .dl { font-size: 0.65em; color: #7ab; text-transform: uppercase; }
+        /* Filter row */
+        .dp-filter { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
+        .dp-filter input, .dp-filter select {
+            background: #0d1a2e; border: 1px solid #1a4a7a; color: #e0f0ff;
+            padding: 4px 8px; border-radius: 5px; font-size: 0.75em; outline: none;
+        }
+        .dp-filter input:focus, .dp-filter select:focus { border-color: #f85149; }
+        /* Table */
+        .dp-tbl-wrap { overflow-x: auto; border: 1px solid #1a3a5c; border-radius: 6px; max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
+        .dp-tbl { width: 100%; border-collapse: collapse; font-size: 0.72em; }
+        .dp-tbl th { background: #0d1a2e; color: #7ab; font-weight: 600; text-align: left; padding: 5px 8px; border-bottom: 1px solid #1a3a5c; white-space: nowrap; position: sticky; top: 0; z-index: 2; }
+        .dp-tbl td { padding: 4px 8px; border-bottom: 1px solid #0d1a2e; white-space: nowrap; }
+        .dp-tbl tr:last-child td { border-bottom: none; }
+        .dp-tbl tr:hover td { background: rgba(248,81,73,.07); }
+        .dp-badge-debris { display:inline-block; padding:1px 6px; border-radius:10px; font-size:10px; font-weight:600; background:rgba(248,81,73,.15); color:#f85149; border:1px solid rgba(248,81,73,.3); }
+        .dp-badge-rocket { display:inline-block; padding:1px 6px; border-radius:10px; font-size:10px; font-weight:600; background:rgba(210,153,34,.15); color:#d29922; border:1px solid rgba(210,153,34,.3); }
+        /* Mini Gantt */
+        .dp-gantt-title { font-size: 0.7em; color: #7ab; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .dp-gantt-wrap { overflow-x: auto; border: 1px solid #1a3a5c; border-radius: 6px; background: #0d1a2e; }
+        .dp-gantt { min-width: 400px; }
+        .dp-g-hdr { display: flex; border-bottom: 1px solid #1a3a5c; }
+        .dp-g-lbl-col { width: 180px; min-width: 180px; padding: 4px 8px; font-size: 0.65em; color: #7ab; border-right: 1px solid #1a3a5c; font-weight: 600; }
+        .dp-g-tl { flex: 1; }
+        .dp-g-ticks { display: flex; height: 22px; }
+        .dp-g-tick { flex: 1; border-right: 1px solid #1a3a5c; padding: 4px 2px; font-size: 9px; color: #556; white-space: nowrap; overflow: hidden; }
+        .dp-g-row { display: flex; border-bottom: 1px solid rgba(26,58,92,.4); min-height: 20px; }
+        .dp-g-row:hover { background: rgba(248,81,73,.05); }
+        .dp-g-row-lbl { width: 180px; min-width: 180px; padding: 2px 8px; border-right: 1px solid #1a3a5c; font-size: 10px; color: #cde; display: flex; align-items: center; overflow: hidden; }
+        .dp-g-row-lbl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dp-g-row-bars { flex: 1; position: relative; height: 20px; }
+        .dp-g-bar { position: absolute; height: 10px; top: 5px; border-radius: 2px; opacity: .85; cursor: pointer; min-width: 2px; }
+        .dp-g-bar:hover { opacity: 1; z-index: 5; }
+        .dp-g-bar-debris { background: #f85149; }
+        .dp-g-bar-rocket { background: #d29922; }
+        /* Pager */
+        .dp-pager { display: flex; gap: 4px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+        .dp-pager button { background: #0d1a2e; border: 1px solid #1a4a7a; color: #cde; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .dp-pager button:hover { border-color: #f85149; color: #f85149; }
+        .dp-pager button.active { background: #f85149; color: #000; border-color: #f85149; }
+        .dp-pager .dp-pinfo { color: #7ab; font-size: 11px; margin-left: 4px; }
+        /* Tooltip */
+        #dpTooltip {
+            position: fixed; background: #1c2128; border: 1px solid #30363d;
+            border-radius: 8px; padding: 8px 12px; font-size: 11px; pointer-events: none;
+            z-index: 9999; max-width: 280px; box-shadow: 0 6px 20px rgba(0,0,0,.5); display: none;
+        }
+        #dpTooltip .dtt { font-weight: 700; color: #f85149; margin-bottom: 4px; }
+        #dpTooltip .dtr { display: flex; gap: 6px; margin-top: 2px; }
+        #dpTooltip .dtk { color: #7ab; min-width: 50px; }
+        #dpTooltip .dtv { color: #e6edf3; }
     </style>
 </head>
 <body>
@@ -497,8 +588,67 @@
     <div class="btn-row" style="margin-top:4px">
         <button class="secondary" id="searchToggleBtn" onclick="toggleSearchPanel()" title="Open Intelligence Search — query satellites, NOTAMs, and alerts">🔍 Intel Search</button>
     </div>
+    <div class="btn-row" style="margin-top:4px">
+        <button class="secondary" id="debrisForecastBtn" onclick="toggleDebrisPanel()" title="Show SGP4 debris/rocket satellite forecast for active NOTAM zones">☄ Debris Forecast</button>
+    </div>
 
 </div>
+
+<!-- ── Debris Forecast Panel ──────────────────────────────── -->
+<div id="debrisPanel">
+    <div class="resize-handle n"  data-dir="n"></div>
+    <div class="resize-handle s"  data-dir="s"></div>
+    <div class="resize-handle e"  data-dir="e"></div>
+    <div class="resize-handle w"  data-dir="w"></div>
+    <div class="resize-handle nw" data-dir="nw"></div>
+    <div class="resize-handle ne" data-dir="ne"></div>
+    <div class="resize-handle sw" data-dir="sw"></div>
+    <div class="resize-handle se" data-dir="se"></div>
+    <h3>
+        <span>☄ NOTAM Debris &amp; Rocket Forecast</span>
+        <span class="close-btn" onclick="toggleDebrisPanel()">✕</span>
+    </h3>
+    <div class="dp-tabs" id="dpTabs">
+        <div class="dp-tab active" data-horizon="24h" onclick="dpSelectHorizon(this)">24-Hour</div>
+        <div class="dp-tab"        data-horizon="72h" onclick="dpSelectHorizon(this)">72-Hour</div>
+        <div class="dp-tab"        data-horizon="96h" onclick="dpSelectHorizon(this)">96-Hour</div>
+    </div>
+    <div class="panel-scroll">
+        <div class="dp-stats" id="dpStats"></div>
+        <div class="dp-filter">
+            <input type="text" id="dpSearch" placeholder="Name / NOTAM / region…" style="width:180px" oninput="dpFilter()">
+            <select id="dpTypeFilter" onchange="dpFilter()">
+                <option value="">All Types</option>
+                <option value="SPACE DEBRIS">Space Debris</option>
+                <option value="ROCKET LAUNCH">Rocket Launch</option>
+            </select>
+            <select id="dpNotamFilter" onchange="dpFilter()">
+                <option value="">All NOTAMs</option>
+            </select>
+        </div>
+        <div class="dp-tbl-wrap">
+            <table class="dp-tbl">
+                <thead>
+                    <tr>
+                        <th>NORAD</th>
+                        <th>Name</th>
+                        <th>NOTAM</th>
+                        <th>Type</th>
+                        <th>Enter (UTC)</th>
+                        <th>Exit (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody id="dpTbody"></tbody>
+            </table>
+        </div>
+        <div class="dp-pager" id="dpPager"></div>
+        <div class="dp-gantt-title">Top 50 Most Active Satellites — Gantt</div>
+        <div class="dp-gantt-wrap">
+            <div class="dp-gantt" id="dpGantt"></div>
+        </div>
+    </div>
+</div>
+<div id="dpTooltip"></div>
 
 <!-- ── Intelligence Search Panel ─────────────────────────── -->
 <div id="searchPanel" style="display:none;">
@@ -750,41 +900,46 @@
 
                     const centerPos = Cesium.Cartesian3.fromDegrees(coords[0], coords[1]);
 
-                    // ── Outline ellipse (base footprint ring) ──────────
+                    // ── Filled + outlined ellipse (base footprint) ─────
                     facilitiesDataSource.entities.add({
                         id:          facId,
                         name:        props.name,
                         description: descHtml,
                         position:    centerPos,
                         ellipse: {
-                            semiMajorAxis: radiusM,
-                            semiMinorAxis: radiusM,
-                            height:        0,
-                            fill:          false,
-                            outline:       true,
-                            outlineColor:  color.withAlpha(0.85),
-                            outlineWidth:  2,
+                            semiMajorAxis:        radiusM,
+                            semiMinorAxis:        radiusM,
+                            height:               0,
+                            // Semi-transparent fill so the base "footprint" is visible
+                            fill:                 true,
+                            material:             color.withAlpha(0.12),
+                            // Solid outline ring
+                            outline:              true,
+                            outlineColor:         color.withAlpha(0.95),
+                            outlineWidth:         3,
                             numberOfVerticalLines: 0,
+                            // Clamp to ground so it drapes over terrain
+                            heightReference:      Cesium.HeightReference.CLAMP_TO_GROUND,
                         },
-                        // Small centre dot so the entity is still pickable at all zoom levels
+                        // Centre point — stays visible when zoomed far out
                         point: {
-                            pixelSize:   6,
-                            color:       color.withAlpha(0.9),
-                            outlineColor: Cesium.Color.BLACK.withAlpha(0.6),
-                            outlineWidth: 1,
-                            scaleByDistance: new Cesium.NearFarScalar(1e4, 1.2, 1e7, 0.4),
-                            disableDepthTestDistance: 0
+                            pixelSize:            8,
+                            color:                color.withAlpha(1.0),
+                            outlineColor:         Cesium.Color.BLACK.withAlpha(0.7),
+                            outlineWidth:         1,
+                            scaleByDistance:      new Cesium.NearFarScalar(1e4, 1.4, 8e6, 0.3),
+                            disableDepthTestDistance: Number.POSITIVE_INFINITY
                         },
                         label: {
-                            text:        typeIcon + ' ' + props.name,
-                            font:        '11px sans-serif',
-                            fillColor:   color,
-                            outlineColor: Cesium.Color.BLACK,
-                            outlineWidth: 2,
-                            style:       Cesium.LabelStyle.FILL_AND_OUTLINE,
-                            pixelOffset: new Cesium.Cartesian2(0, -18),
-                            scaleByDistance: new Cesium.NearFarScalar(1e5, 1.0, 5e6, 0.0),
-                            disableDepthTestDistance: 0
+                            text:             typeIcon + ' ' + props.name,
+                            font:             '12px sans-serif',
+                            fillColor:        color,
+                            outlineColor:     Cesium.Color.BLACK,
+                            outlineWidth:     2,
+                            style:            Cesium.LabelStyle.FILL_AND_OUTLINE,
+                            pixelOffset:      new Cesium.Cartesian2(0, -20),
+                            scaleByDistance:  new Cesium.NearFarScalar(1e5, 1.0, 4e6, 0.0),
+                            disableDepthTestDistance: Number.POSITIVE_INFINITY
                         }
                     });
                 });
@@ -2092,6 +2247,30 @@
     makeResizable(document.getElementById('targetInfoPanel'),  { minW: 200, minH: 120 });
     makeResizable(document.getElementById('proximityPanel'),   { minW: 200, minH: 120 });
     makeResizable(document.getElementById('searchPanel'),      { minW: 260, minH: 160 });
+    makeResizable(document.getElementById('debrisPanel'),      { minW: 320, minH: 200 });
+
+    // ── Drag for searchPanel (was missing) ─────────────────
+    (function initSearchDrag() {
+        const panel = document.getElementById('searchPanel');
+        let dragging = false, ox = 0, oy = 0;
+        panel.querySelector('h3').addEventListener('mousedown', e => {
+            if (e.target.classList.contains('close-btn')) return;
+            dragging = true;
+            ox = e.clientX - panel.offsetLeft;
+            oy = e.clientY - panel.offsetTop;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', e => {
+            if (!dragging) return;
+            const nx = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - ox));
+            const ny = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - oy));
+            panel.style.left   = nx + 'px';
+            panel.style.top    = ny + 'px';
+            panel.style.right  = 'auto';
+            panel.style.bottom = 'auto';
+        });
+        document.addEventListener('mouseup', () => { dragging = false; });
+    })();
 
     // ── Intelligence Search ────────────────────────────────
     // FastAPI search service runs on port 8001 (Sky-Net web server uses 8000).
@@ -2464,6 +2643,271 @@
             showTargetInfo(entity);
         }
     }
+
+    // ── Debris Forecast Panel ─────────────────────────────────────────────────
+
+    const DP_PAGE = 200;
+    const DP_GANTT_MAX = 50;
+    let dpData = {};          // { "24h": [...rows], "72h": [...], "96h": [...] }
+    let dpHorizon = '24h';
+    let dpFiltered = [];
+    let dpPage = 0;
+    let dpLoaded = false;
+
+    function toggleDebrisPanel() {
+        const panel = document.getElementById('debrisPanel');
+        const btn   = document.getElementById('debrisForecastBtn');
+        if (panel.style.display === 'none' || !panel.style.display) {
+            panel.style.display = 'block';
+            btn.classList.add('on');
+            if (!dpLoaded) loadDebrisData();
+        } else {
+            panel.style.display = 'none';
+            btn.classList.remove('on');
+        }
+    }
+
+    async function loadDebrisData() {
+        dpLoaded = true;
+        const horizons = ['24h', '72h', '96h'];
+        for (const h of horizons) {
+            try {
+                const resp = await fetch('./data/notam_forecast_' + h + '.csv?v=' + Date.now());
+                const text = await resp.text();
+                dpData[h] = parseCSV(text);
+            } catch (e) {
+                dpData[h] = [];
+                console.warn('Debris forecast load failed for ' + h, e);
+            }
+        }
+        dpRender();
+    }
+
+    function parseCSV(text) {
+        const lines = text.trim().split('\n');
+        if (lines.length < 2) return [];
+        const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g,'').trim());
+        return lines.slice(1).map(line => {
+            // Handle quoted fields
+            const vals = [];
+            let cur = '', inQ = false;
+            for (let i = 0; i < line.length; i++) {
+                const c = line[i];
+                if (c === '"') { inQ = !inQ; }
+                else if (c === ',' && !inQ) { vals.push(cur); cur = ''; }
+                else { cur += c; }
+            }
+            vals.push(cur);
+            const obj = {};
+            headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim(); });
+            return obj;
+        });
+    }
+
+    function dpSelectHorizon(el) {
+        document.querySelectorAll('.dp-tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        dpHorizon = el.dataset.horizon;
+        dpPage = 0;
+        dpFilter();
+    }
+
+    function dpFilter() {
+        const q     = (document.getElementById('dpSearch').value || '').toLowerCase();
+        const type  = document.getElementById('dpTypeFilter').value;
+        const notam = document.getElementById('dpNotamFilter').value;
+        const all   = dpData[dpHorizon] || [];
+        dpFiltered = all.filter(r => {
+            const mq = !q || [r.NORAD_ID, r.NAME, r.NOTAM, r.REGION].some(v => (v||'').toLowerCase().includes(q));
+            const mt = !type  || r.TYPE  === type;
+            const mn = !notam || r.NOTAM === notam;
+            return mq && mt && mn;
+        });
+        dpPage = 0;
+        dpRenderTable();
+        dpRenderGantt();
+    }
+
+    function dpRender() {
+        const all = dpData[dpHorizon] || [];
+
+        // Populate NOTAM filter
+        const notamSel = document.getElementById('dpNotamFilter');
+        const notams = [...new Set(all.map(r => r.NOTAM))].sort();
+        notamSel.innerHTML = '<option value="">All NOTAMs</option>' +
+            notams.map(n => '<option value="' + n + '">' + n + '</option>').join('');
+
+        // Stats
+        const nSats   = new Set(all.map(r => r.NORAD_ID)).size;
+        const nNotams = new Set(all.map(r => r.NOTAM)).size;
+        const nDebris = all.filter(r => r.TYPE === 'SPACE DEBRIS').length;
+        const nRocket = all.filter(r => r.TYPE === 'ROCKET LAUNCH').length;
+        document.getElementById('dpStats').innerHTML =
+            dpStat(all.length.toLocaleString(), 'Events') +
+            dpStat(nSats.toLocaleString(), 'Satellites') +
+            dpStat(nNotams, 'NOTAMs') +
+            dpStat(nDebris.toLocaleString(), 'Debris', '#f85149') +
+            dpStat(nRocket.toLocaleString(), 'Rocket', '#d29922');
+
+        dpFiltered = all;
+        dpRenderTable();
+        dpRenderGantt();
+    }
+
+    function dpStat(val, lbl, color) {
+        const c = color ? ' style="color:' + color + '"' : '';
+        return '<div class="dp-stat"><div class="dv"' + c + '>' + val + '</div><div class="dl">' + lbl + '</div></div>';
+    }
+
+    function dpRenderTable() {
+        const rows  = dpFiltered;
+        const total = rows.length;
+        const pages = Math.max(1, Math.ceil(total / DP_PAGE));
+        const p     = Math.min(dpPage, pages - 1);
+        const slice = rows.slice(p * DP_PAGE, (p+1) * DP_PAGE);
+
+        const tbody = document.getElementById('dpTbody');
+        if (!total) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:12px;color:#7ab;font-style:italic">No intersections found.</td></tr>';
+        } else {
+            tbody.innerHTML = slice.map(r => {
+                const badge = r.TYPE === 'SPACE DEBRIS'
+                    ? '<span class="dp-badge-debris">DEBRIS</span>'
+                    : '<span class="dp-badge-rocket">ROCKET</span>';
+                return '<tr>' +
+                    '<td>' + r.NORAD_ID + '</td>' +
+                    '<td>' + r.NAME + '</td>' +
+                    '<td>' + r.NOTAM + '</td>' +
+                    '<td>' + badge + '</td>' +
+                    '<td>' + r.ENTER + '</td>' +
+                    '<td>' + r.EXIT  + '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        // Pager
+        const pager = document.getElementById('dpPager');
+        if (pages <= 1) { pager.innerHTML = ''; return; }
+        let btns = '';
+        const lo = Math.max(0, p-2), hi = Math.min(pages-1, p+2);
+        if (lo > 0) btns += '<button onclick="dpGoPage(0)">1</button><span style="color:#7ab">…</span>';
+        for (let i=lo; i<=hi; i++) {
+            btns += '<button class="' + (i===p?'active':'') + '" onclick="dpGoPage(' + i + ')">' + (i+1) + '</button>';
+        }
+        if (hi < pages-1) btns += '<span style="color:#7ab">…</span><button onclick="dpGoPage(' + (pages-1) + ')">' + pages + '</button>';
+        pager.innerHTML = btns + '<span class="dp-pinfo">Page ' + (p+1) + '/' + pages + ' (' + DP_PAGE + '/pg)</span>';
+    }
+
+    function dpGoPage(p) {
+        dpPage = p;
+        dpRenderTable();
+    }
+
+    function dpRenderGantt() {
+        const gantt = document.getElementById('dpGantt');
+        const rows  = dpFiltered;
+        if (!rows.length) { gantt.innerHTML = '<div style="padding:10px;color:#7ab;font-size:11px">No data.</div>'; return; }
+
+        const hours   = parseInt(dpHorizon);
+        const nowMs   = Date.now();
+        const endMs   = nowMs + hours * 3600000;
+        const spanMs  = endMs - nowMs;
+
+        // Top DP_GANTT_MAX sats by event count
+        const cnt = {};
+        rows.forEach(r => { cnt[r.NORAD_ID] = (cnt[r.NORAD_ID]||0)+1; });
+        const topIds = new Set(Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,DP_GANTT_MAX).map(e=>e[0]));
+        const topRows = rows.filter(r => topIds.has(String(r.NORAD_ID)));
+
+        const satMap = {};
+        topRows.forEach(r => {
+            const k = r.NORAD_ID + '|' + r.NAME;
+            if (!satMap[k]) satMap[k] = { norad: r.NORAD_ID, name: r.NAME, bars: [] };
+            satMap[k].bars.push(r);
+        });
+        const sats = Object.values(satMap);
+
+        // Ticks
+        const tickCount = Math.min(hours, 12);
+        const tickStepMs = spanMs / tickCount;
+        let tickHtml = '';
+        for (let i=0; i<=tickCount; i++) {
+            const t = new Date(nowMs + i * tickStepMs);
+            const lbl = t.toISOString().slice(5,16).replace('T',' ')+'Z';
+            tickHtml += '<div class="dp-g-tick">' + lbl + '</div>';
+        }
+
+        let rowsHtml = '';
+        sats.forEach(sat => {
+            let barsHtml = '';
+            sat.bars.forEach(r => {
+                const t0 = new Date(r.ENTER).getTime();
+                const t1 = new Date(r.EXIT).getTime();
+                const left  = Math.max(0,   (t0 - nowMs) / spanMs * 100);
+                const right = Math.min(100, (t1 - nowMs) / spanMs * 100);
+                const width = Math.max(0.2, right - left);
+                const cls   = r.TYPE === 'SPACE DEBRIS' ? 'dp-g-bar-debris' : 'dp-g-bar-rocket';
+                const tip   = encodeURIComponent(JSON.stringify(r));
+                barsHtml += '<div class="dp-g-bar ' + cls + '" style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%" ' +
+                    'data-tip="' + tip + '" onmouseenter="dpShowTip(event,this)" onmouseleave="dpHideTip()"></div>';
+            });
+            rowsHtml += '<div class="dp-g-row">' +
+                '<div class="dp-g-row-lbl"><span title="' + sat.name + '">' + sat.norad + ' — ' + sat.name + '</span></div>' +
+                '<div class="dp-g-row-bars">' + barsHtml + '</div>' +
+                '</div>';
+        });
+
+        gantt.innerHTML =
+            '<div class="dp-g-hdr">' +
+                '<div class="dp-g-lbl-col">Satellite (' + sats.length + ')</div>' +
+                '<div class="dp-g-tl"><div class="dp-g-ticks">' + tickHtml + '</div></div>' +
+            '</div>' + rowsHtml;
+    }
+
+    const dpTip = document.getElementById('dpTooltip');
+    function dpShowTip(e, el) {
+        try {
+            const r = JSON.parse(decodeURIComponent(el.dataset.tip));
+            dpTip.innerHTML =
+                '<div class="dtt">' + r.NAME + ' (' + r.NORAD_ID + ')</div>' +
+                '<div class="dtr"><span class="dtk">NOTAM</span><span class="dtv">' + r.NOTAM + '</span></div>' +
+                '<div class="dtr"><span class="dtk">Type</span><span class="dtv">' + r.TYPE + '</span></div>' +
+                '<div class="dtr"><span class="dtk">Region</span><span class="dtv">' + r.REGION + '</span></div>' +
+                '<div class="dtr"><span class="dtk">Enter</span><span class="dtv">' + r.ENTER + '</span></div>' +
+                '<div class="dtr"><span class="dtk">Exit</span><span class="dtv">' + r.EXIT + '</span></div>';
+            dpTip.style.display = 'block';
+            dpMoveTip(e);
+        } catch(ex) {}
+    }
+    function dpMoveTip(e) {
+        dpTip.style.left = (e.clientX + 14) + 'px';
+        dpTip.style.top  = (e.clientY - 10) + 'px';
+    }
+    function dpHideTip() { dpTip.style.display = 'none'; }
+    document.addEventListener('mousemove', e => { if (dpTip && dpTip.style.display !== 'none') dpMoveTip(e); });
+
+    // Make debris panel draggable — viewport-clamped
+    (function initDebrisDrag() {
+        const panel = document.getElementById('debrisPanel');
+        let dragging = false, ox = 0, oy = 0;
+        panel.querySelector('h3').addEventListener('mousedown', e => {
+            if (e.target.classList.contains('close-btn')) return;
+            dragging = true;
+            ox = e.clientX - panel.offsetLeft;
+            oy = e.clientY - panel.offsetTop;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', e => {
+            if (!dragging) return;
+            const nx = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - ox));
+            const ny = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - oy));
+            panel.style.left   = nx + 'px';
+            panel.style.top    = ny + 'px';
+            panel.style.right  = 'auto';
+            panel.style.bottom = 'auto';
+        });
+        document.addEventListener('mouseup', () => { dragging = false; });
+    })();
 
     /** Fly to a local NOTAM/facility entity by ID */
     function flyToLocalResult(entityId) {

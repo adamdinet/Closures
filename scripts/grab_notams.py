@@ -14,6 +14,7 @@ All sources are merged, deduplicated, and written to data/closures.czml
 
 import io
 import json
+import math
 import os
 import re
 import sys
@@ -255,9 +256,8 @@ def extract_coords_from_text(text):
     """
     Extract all coordinate pairs from free-text NAVAREA/NOTAM messages.
     Handles DM format: 46-31.23N 140-10.57W
-    Returns list of [lon, lat, 0, ...] cartographic degrees.
+    Returns list of [lon, lat, 0, ...] cartographic degrees (all areas merged).
     """
-    # Pattern: DD-MM.mmH  (lat then lon)
     pattern = re.compile(
         r"(\d{1,2}-\d{2}(?:\.\d+)?[NS])\s+(\d{1,3}-\d{2}(?:\.\d+)?[WE])"
     )
@@ -270,9 +270,127 @@ def extract_coords_from_text(text):
             carto.extend([lon, lat, 0])
     return carto
 
+
+def _carto_is_global(carto):
+    """
+    Return True if the carto list spans the entire globe (or nearly so).
+    Only used to suppress polygon rendering for worldwide NOTAMs like
+    NAVAREA IV 138/22 which covers the entire Southern Ocean / polar region.
+    Threshold: lat span > 140° OR lon span > 330°.
+    """
+    if len(carto) < 6:
+        return False
+    lats = [carto[i+1] for i in range(0, len(carto)-2, 3)]
+    lons = [carto[i]   for i in range(0, len(carto)-2, 3)]
+    lat_span = max(lats) - min(lats)
+    lon_span = max(lons) - min(lons)
+    return lat_span > 140.0 or lon_span > 330.0
+
+
+def extract_sub_area_cartos(text):
+    """
+    Split a NOTAM text on sub-area labels (A., B., C. ...) and return a list
+    of separate carto lists — one per sub-area.  If no sub-area labels are
+    found, returns a single-element list containing all coordinates.
+
+    This prevents multi-area NOTAMs from being merged into one giant
+    self-intersecting polygon.
+
+    Sub-area format in NAVAREA/HYDROPAC texts:
+        "   A. <text>"  (3+ spaces, single uppercase letter, dot, space)
+    """
+    coord_re = re.compile(
+        r"(\d{1,2}-\d{2}(?:\.\d+)?[NS])\s+(\d{1,3}-\d{2}(?:\.\d+)?[WE])"
+    )
+    # Match "   A. " or "   B. " etc. — 3+ spaces, capital letter, dot, whitespace
+    sub_re = re.compile(r'(?m)^\s{2,}([A-Z])\.\s+')
+    parts = sub_re.split(text)
+
+    # sub_re.split returns [before_first, label1, block1, label2, block2, ...]
+    # We want the blocks (every other element starting at index 2, or index 1 if no prefix)
+    if len(parts) <= 2:
+        # No sub-areas found — return all coords as one block
+        all_carto = extract_coords_from_text(text)
+        return [all_carto] if (all_carto and not _carto_is_global(all_carto)) else []
+
+    # Collect blocks: parts[0] is preamble, then alternating label/block
+    result = []
+    # parts = [preamble, 'A', block_A, 'B', block_B, ...]
+    i = 2  # skip preamble and first label
+    while i < len(parts):
+        block = parts[i]
+        pairs = coord_re.findall(block)
+        carto = []
+        for lat_s, lon_s in pairs:
+            lat = dm_to_dd(lat_s)
+            lon = dm_to_dd(lon_s)
+            if lat is not None and lon is not None:
+                carto.extend([lon, lat, 0])
+        if len(carto) >= 6 and not _carto_is_global(carto):
+            result.append(carto)
+        i += 2  # skip next label, go to next block
+
+    if not result:
+        all_carto = extract_coords_from_text(text)
+        return [all_carto] if (all_carto and not _carto_is_global(all_carto)) else []
+    return result
+
+def convex_hull_carto(carto):
+    """
+    Given a flat [lon, lat, alt, lon, lat, alt, ...] list, compute the
+    convex hull of the (lon, lat) points and return a new flat list in
+    counter-clockwise winding order (closed — first point repeated at end).
+
+    This prevents self-intersecting / bowtie polygons that occur when
+    NOTAM coordinates are listed in text order rather than winding order.
+
+    Falls back to the original carto if fewer than 3 unique points.
+    """
+    # Unpack into (lon, lat) pairs (ignore altitude)
+    pts = []
+    for i in range(0, len(carto) - 2, 3):
+        pts.append((carto[i], carto[i+1]))
+
+    # Deduplicate
+    unique = list(dict.fromkeys(pts))
+    if len(unique) < 3:
+        return carto
+
+    # Graham scan convex hull
+    def cross(O, A, B):
+        return (A[0] - O[0]) * (B[1] - O[1]) - (A[1] - O[1]) * (B[0] - O[0])
+
+    pts_sorted = sorted(unique)
+    lower = []
+    for p in pts_sorted:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+    upper = []
+    for p in reversed(pts_sorted):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+    hull = lower[:-1] + upper[:-1]   # CCW, not closed
+
+    if len(hull) < 3:
+        return carto
+
+    # Close the ring and flatten back to [lon, lat, 0, ...]
+    hull_closed = hull + [hull[0]]
+    result = []
+    for lon, lat in hull_closed:
+        result.extend([lon, lat, 0])
+    return result
+
+
 def build_czml_entity(entity_id, name, description, start_iso, end_iso,
-                       carto, colors, source_tag, active_now):
-    """Build a CZML entity dict."""
+                       carto, colors, source_tag, active_now, sub_cartos=None):
+    """Build a CZML entity dict.
+
+    sub_cartos: optional list of per-sub-area carto lists (from extract_sub_area_cartos).
+    When provided, each sub-area gets its own convex-hull polygon.
+    """
     safe_id = re.sub(r"[^A-Za-z0-9_\-]", "_", entity_id)
 
     # Compute effective end date.
@@ -329,22 +447,49 @@ def build_czml_entity(entity_id, name, description, start_iso, end_iso,
     if availability:
         entity["availability"] = availability
 
+    # Determine which carto lists to use for polygons.
+    # Use sub_cartos (per-sub-area) if available; otherwise fall back to merged carto.
+    # Filter out any sub-area that spans an unreasonably large area (worldwide NOTAMs).
+    if sub_cartos and len(sub_cartos) > 0:
+        poly_cartos = [sc for sc in sub_cartos if sc and not _carto_is_global(sc)]
+    elif carto and not _carto_is_global(carto):
+        poly_cartos = [carto]
+    else:
+        poly_cartos = []
+
     if len(carto) >= 6:
-        closed_carto = carto + carto[:3] if (len(carto) >= 9 and carto[:3] != carto[-3:]) else carto
+        # Polyline: use the first valid sub-area hull for the outline,
+        # or fall back to the raw carto if not global.
+        line_src = poly_cartos[0] if poly_cartos else (carto if not _carto_is_global(carto) else None)
+        if line_src:
+            hull_line = convex_hull_carto(line_src)
+            entity["polyline"] = {
+                "positions": {"cartographicDegrees": hull_line},
+                "material": {"solidColor": {"color": {"rgba": colors["line"]}}},
+                "width": 3 if active_now else 1
+            }
 
-        entity["polyline"] = {
-            "positions": {"cartographicDegrees": carto},
-            "material": {"solidColor": {"color": {"rgba": colors["line"]}}},
-            "width": 3 if active_now else 1
-        }
+        # Build one polygon per sub-area, each with its own convex hull
+        valid_polys = []
+        for sc in poly_cartos:
+            if len(sc) < 9:
+                continue
+            closed = sc + sc[:3] if sc[:3] != sc[-3:] else sc
+            hull = convex_hull_carto(closed)
+            if len(hull) >= 12:
+                valid_polys.append(hull)
 
-        if len(closed_carto) >= 12:
+        if valid_polys:
+            # Primary polygon (first sub-area or only area)
             entity["polygon"] = {
-                "positions": {"cartographicDegrees": closed_carto},
+                "positions": {"cartographicDegrees": valid_polys[0]},
                 "material": {"solidColor": {"color": {"rgba": colors["poly"]}}},
                 "height": 0,
                 "clampToGround": True
             }
+            # Additional sub-area polygons stored in properties for JS rendering
+            if len(valid_polys) > 1:
+                entity.setdefault("properties", {})["extra_polygons"] = valid_polys[1:]
     elif len(carto) == 3:
         # Single point — render as billboard/point
         entity["position"] = {
@@ -405,7 +550,8 @@ def fetch_nga_broadcast():
             if not end_iso:
                 end_iso = parse_cancel_date(text)
 
-            carto  = extract_coords_from_text(text)
+            sub_cartos = extract_sub_area_cartos(text)
+            carto  = sub_cartos[0] if sub_cartos else []
             colors = get_color(text)
             active = is_currently_active(start_iso, end_iso)
 
@@ -416,6 +562,7 @@ def fetch_nga_broadcast():
                 "start_iso": start_iso,
                 "end_iso": end_iso,
                 "carto": carto,
+                "sub_cartos": sub_cartos,
                 "colors": colors,
                 "source": "NGA NAVAREA",
                 "active": active
@@ -508,7 +655,8 @@ def _parse_nga_text_blocks(content, source_tag):
 
         name    = f"{msg_type} {nav_area} {msg_num}".strip()
         end_iso = parse_cancel_date(block)
-        carto   = extract_coords_from_text(block)
+        sub_cartos = extract_sub_area_cartos(block)
+        carto   = sub_cartos[0] if sub_cartos else []
         colors  = get_color(block)
         active  = is_currently_active(start_iso, end_iso)
         safe_id = f"{source_tag}_{msg_type}_{nav_area}_{msg_num}".replace("/", "_").replace(" ", "_")
@@ -519,6 +667,7 @@ def _parse_nga_text_blocks(content, source_tag):
             "description": block[:2000],
             "start_iso": start_iso,
             "end_iso": end_iso,
+            "sub_cartos": sub_cartos,
             "carto": carto,
             "colors": colors,
             "source": f"NGA {msg_type}",
@@ -884,21 +1033,23 @@ def parse_local_raw_notams():
         msg_num  = nav_match.group(2)
         name     = f"NAVAREA {nav_area} {msg_num} (local)"
 
-        end_iso = parse_cancel_date(block)
-        carto   = extract_coords_from_text(block)
-        colors  = get_color(block)
-        active  = is_currently_active(start_iso, end_iso)
+        end_iso    = parse_cancel_date(block)
+        sub_cartos = extract_sub_area_cartos(block)
+        carto      = sub_cartos[0] if sub_cartos else extract_coords_from_text(block)
+        colors     = get_color(block)
+        active     = is_currently_active(start_iso, end_iso)
 
         results.append({
-            "id": f"LOCAL_NAVAREA_{nav_area}_{msg_num.replace('/', '_')}",
-            "name": name,
+            "id":          f"LOCAL_NAVAREA_{nav_area}_{msg_num.replace('/', '_')}",
+            "name":        name,
             "description": block[:2000],
-            "start_iso": start_iso,
-            "end_iso": end_iso,
-            "carto": carto,
-            "colors": colors,
-            "source": "NGA Text (local)",
-            "active": active
+            "start_iso":   start_iso,
+            "end_iso":     end_iso,
+            "carto":       carto,
+            "sub_cartos":  sub_cartos,
+            "colors":      colors,
+            "source":      "NGA Text (local)",
+            "active":      active
         })
         parsed += 1
 
@@ -1401,7 +1552,8 @@ def generate_czml():
             carto       = rec["carto"],
             colors      = rec["colors"],
             source_tag  = rec["source"],
-            active_now  = rec["active"]
+            active_now  = rec["active"],
+            sub_cartos  = rec.get("sub_cartos")
         )
         czml.append(entity)
         entity_count += 1
