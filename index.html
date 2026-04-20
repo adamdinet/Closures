@@ -2843,11 +2843,34 @@
             const [line1, line2] = tle;
             const satrec = satellite.twoline2satrec(line1, line2);
 
-            // Propagate from 30 min before entry to 30 min after exit
-            const enterMs = new Date(r.ENTER).getTime();
+            // Collect ALL intersections for this NORAD ID across all horizons
+            // Use the current horizon's data (dpHorizon) plus any others loaded
+            const allIntersections = [];
+            ['24h','72h','96h'].forEach(h => {
+                const hRows = dpData[h] || [];
+                hRows.forEach(row => {
+                    if (String(row.NORAD_ID) === norad && row.ENTER && row.EXIT) {
+                        allIntersections.push(row);
+                    }
+                });
+            });
+            // Deduplicate by ENTER+EXIT
+            const seen = new Set();
+            const uniqueIntersections = allIntersections.filter(row => {
+                const k = row.ENTER + '|' + row.EXIT;
+                if (seen.has(k)) return false;
+                seen.add(k); return true;
+            });
+            // Sort by enter time
+            uniqueIntersections.sort((a,b) => new Date(a.ENTER) - new Date(b.ENTER));
+
+            // Time window: 30 min before first entry to 30 min after last exit
+            const firstEnterMs = new Date(uniqueIntersections[0].ENTER).getTime();
+            const lastExitMs   = new Date(uniqueIntersections[uniqueIntersections.length-1].EXIT).getTime();
+            const enterMs = new Date(r.ENTER).getTime();  // clicked row entry (for camera)
             const exitMs  = new Date(r.EXIT).getTime();
-            const startMs = enterMs - 30 * 60000;
-            const endMs   = exitMs  + 30 * 60000;
+            const startMs = firstEnterMs - 30 * 60000;
+            const endMs   = lastExitMs   + 30 * 60000;
             const stepMs  = 30000;  // 30-second steps
 
             const startIso = new Date(startMs).toISOString();
@@ -2920,32 +2943,51 @@
                         }
                     }
                 },
-                // Moving satellite dot — turns red inside NOTAM zone
+                // Moving satellite dot — color by NOTAM type for every intersection
                 {
                     id: pointId,
                     name: r.NAME,
                     description: '<b>' + r.NAME + '</b> (NORAD ' + norad + ')<br/>' +
-                                 '<b>NOTAM:</b> ' + r.NOTAM + '<br/>' +
+                                 '<b>Total intersections:</b> ' + uniqueIntersections.length + '<br/>' +
+                                 '<b>Clicked NOTAM:</b> ' + r.NOTAM + '<br/>' +
                                  '<b>Type:</b> ' + r.TYPE + '<br/>' +
                                  '<b>Enters zone:</b> ' + r.ENTER + '<br/>' +
                                  '<b>Exits zone:</b> ' + r.EXIT,
                     availability: startIso + '/' + endIso,
                     position: posBlock,
-                    point: {
-                        color: [
-                            { interval: startIso + '/' + enterIso, rgba: [200, 200, 200, 255] },
-                            { interval: enterIso + '/' + exitIso,  rgba: [248, 81, 73, 255] },
-                            { interval: exitIso  + '/' + endIso,   rgba: [200, 200, 200, 255] }
-                        ],
-                        pixelSize: [
-                            { interval: startIso + '/' + enterIso, number: 7 },
-                            { interval: enterIso + '/' + exitIso,  number: 14 },
-                            { interval: exitIso  + '/' + endIso,   number: 7 }
-                        ],
-                        outlineColor: { rgba: [0, 0, 0, 200] },
-                        outlineWidth: 1,
-                        show: true
-                    },
+                    point: (function() {
+                        // Build color + size intervals for ALL intersections
+                        // Default: white/grey (7px). In zone: red=debris (14px), orange=rocket (12px)
+                        const colorIntervals = [];
+                        const sizeIntervals  = [];
+
+                        // Fill entire range with default first
+                        colorIntervals.push({ interval: startIso + '/' + endIso, rgba: [200, 200, 200, 255] });
+                        sizeIntervals.push(  { interval: startIso + '/' + endIso, number: 7 });
+
+                        // Override for each intersection window
+                        uniqueIntersections.forEach(ix => {
+                            const ixEnter = new Date(ix.ENTER).toISOString();
+                            const ixExit  = new Date(ix.EXIT).toISOString();
+                            const isDebris = ix.TYPE === 'SPACE DEBRIS';
+                            colorIntervals.push({
+                                interval: ixEnter + '/' + ixExit,
+                                rgba: isDebris ? [248, 81, 73, 255] : [210, 153, 34, 255]
+                            });
+                            sizeIntervals.push({
+                                interval: ixEnter + '/' + ixExit,
+                                number: isDebris ? 14 : 12
+                            });
+                        });
+
+                        return {
+                            color:        colorIntervals,
+                            pixelSize:    sizeIntervals,
+                            outlineColor: { rgba: [0, 0, 0, 200] },
+                            outlineWidth: 1,
+                            show: true
+                        };
+                    })(),
                     label: {
                         text: r.NAME,
                         font: '11px sans-serif',
