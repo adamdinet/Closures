@@ -5,6 +5,8 @@
     <title>Sky-Net (Lite): Unified Intelligence Grid</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <!-- satellite.js — JS port of SGP4/SDP4 for in-browser orbital propagation -->
+    <script src="https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js"></script>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: 'Segoe UI', sans-serif; }
@@ -616,7 +618,7 @@
     <div class="panel-scroll">
         <div class="dp-stats" id="dpStats"></div>
         <div class="dp-filter">
-            <input type="text" id="dpSearch" placeholder="Name / NOTAM / region…" style="width:180px" oninput="dpFilter()">
+            <input type="text" id="dpSearch" placeholder="Name / NOTAM / region…" style="width:160px" oninput="dpFilter()">
             <select id="dpTypeFilter" onchange="dpFilter()">
                 <option value="">All Types</option>
                 <option value="SPACE DEBRIS">Space Debris</option>
@@ -625,7 +627,9 @@
             <select id="dpNotamFilter" onchange="dpFilter()">
                 <option value="">All NOTAMs</option>
             </select>
+            <button id="dpClearTrackBtn" onclick="clearDebrisTrack()" style="display:none;background:#3a0000;border:1px solid #f85149;color:#f85149;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:11px;">&#x2715; Clear Track</button>
         </div>
+        <div style="font-size:10px;color:#7ab;margin-bottom:6px;">&#x1F4CC; Click any row to visualize the satellite track on the globe</div>
         <div class="dp-tbl-wrap">
             <table class="dp-tbl">
                 <thead>
@@ -2774,7 +2778,8 @@
                 const badge = r.TYPE === 'SPACE DEBRIS'
                     ? '<span class="dp-badge-debris">DEBRIS</span>'
                     : '<span class="dp-badge-rocket">ROCKET</span>';
-                return '<tr>' +
+                const rowData = encodeURIComponent(JSON.stringify(r));
+                return '<tr style="cursor:pointer" title="Click to visualize track on globe" onclick="flyToDebrisTrack(' + "'" + rowData + "'" + ')">' +
                     '<td>' + r.NORAD_ID + '</td>' +
                     '<td>' + r.NAME + '</td>' +
                     '<td>' + r.NOTAM + '</td>' +
@@ -2801,6 +2806,201 @@
     function dpGoPage(p) {
         dpPage = p;
         dpRenderTable();
+    }
+
+    // ── SGP4 Debris Track Visualization ──────────────────────────────────────
+
+    let _tleIndex     = null;   // { "NORAD": ["line1","line2"] }
+    let _tleIndexLoad = null;   // Promise
+    let _debrisTrackDS = null;  // active Cesium DataSource
+
+    async function loadTleIndex() {
+        if (_tleIndex) return _tleIndex;
+        if (_tleIndexLoad) return _tleIndexLoad;
+        _tleIndexLoad = fetch('./data/tle_index.json?v=' + Date.now())
+            .then(r => r.json())
+            .then(d => { _tleIndex = d; return d; });
+        return _tleIndexLoad;
+    }
+
+    async function flyToDebrisTrack(rowDataEncoded) {
+        const r = JSON.parse(decodeURIComponent(rowDataEncoded));
+        const norad = String(r.NORAD_ID).replace(/^0+/, '') || '0';
+
+        // Show loading state
+        const btn = document.getElementById('dpClearTrackBtn');
+        if (btn) { btn.style.display = 'inline-block'; btn.textContent = '⏳ Loading...'; }
+
+        try {
+            const index = await loadTleIndex();
+            const tle = index[norad];
+            if (!tle) {
+                alert('TLE not found for NORAD ' + norad + '. Re-run fetch_tle_bulk.py to refresh.');
+                if (btn) btn.style.display = 'none';
+                return;
+            }
+
+            const [line1, line2] = tle;
+            const satrec = satellite.twoline2satrec(line1, line2);
+
+            // Propagate from 30 min before entry to 30 min after exit
+            const enterMs = new Date(r.ENTER).getTime();
+            const exitMs  = new Date(r.EXIT).getTime();
+            const startMs = enterMs - 30 * 60000;
+            const endMs   = exitMs  + 30 * 60000;
+            const stepMs  = 30000;  // 30-second steps
+
+            const startIso = new Date(startMs).toISOString();
+            const endIso   = new Date(endMs).toISOString();
+            const enterIso = new Date(enterMs).toISOString();
+            const exitIso  = new Date(exitMs).toISOString();
+
+            // CZML cartographicDegrees with epoch: [secondsFromEpoch, lon, lat, alt, ...]
+            // epoch is the startMs ISO string; each position is offset in seconds
+            const posDegrees = [];  // [sec, lon, lat, altM, ...]
+
+            let t = startMs;
+            while (t <= endMs) {
+                const date   = new Date(t);
+                const posVel = satellite.propagate(satrec, date);
+                if (posVel && posVel.position) {
+                    const gmst = satellite.gstime(date);
+                    const geo  = satellite.eciToGeodetic(posVel.position, gmst);
+                    const lon  = satellite.degreesLong(geo.longitude);
+                    const lat  = satellite.degreesLat(geo.latitude);
+                    const altM = geo.height * 1000;  // km -> m
+                    const sec  = (t - startMs) / 1000;
+                    posDegrees.push(sec, lon, lat, altM);
+                }
+                t += stepMs;
+            }
+
+            if (posDegrees.length < 8) {
+                alert('Could not propagate orbit for ' + r.NAME + '. TLE may be too old.');
+                if (btn) btn.style.display = 'none';
+                return;
+            }
+
+            const trackId = 'DEBRIS_TRACK_' + norad;
+            const pointId = 'DEBRIS_POINT_' + norad;
+
+            const posBlock = {
+                interpolationAlgorithm: 'LAGRANGE',
+                interpolationDegree: 5,
+                referenceFrame: 'INERTIAL',
+                epoch: startIso,
+                cartographicDegrees: posDegrees
+            };
+
+            const czml = [
+                {
+                    id: 'document', name: 'Debris Track', version: '1.0',
+                    clock: {
+                        interval: startIso + '/' + endIso,
+                        currentTime: enterIso,
+                        multiplier: 60,
+                        range: 'LOOP_STOP',
+                        step: 'SYSTEM_CLOCK_MULTIPLIER'
+                    }
+                },
+                // Ground track path
+                {
+                    id: trackId,
+                    name: r.NAME + ' track',
+                    availability: startIso + '/' + endIso,
+                    position: posBlock,
+                    path: {
+                        show: true,
+                        width: 2,
+                        leadTime: 0,
+                        trailTime: 3600,
+                        resolution: 30,
+                        material: {
+                            solidColor: { color: { rgba: [255, 200, 0, 180] } }
+                        }
+                    }
+                },
+                // Moving satellite dot — turns red inside NOTAM zone
+                {
+                    id: pointId,
+                    name: r.NAME,
+                    description: '<b>' + r.NAME + '</b> (NORAD ' + norad + ')<br/>' +
+                                 '<b>NOTAM:</b> ' + r.NOTAM + '<br/>' +
+                                 '<b>Type:</b> ' + r.TYPE + '<br/>' +
+                                 '<b>Enters zone:</b> ' + r.ENTER + '<br/>' +
+                                 '<b>Exits zone:</b> ' + r.EXIT,
+                    availability: startIso + '/' + endIso,
+                    position: posBlock,
+                    point: {
+                        color: [
+                            { interval: startIso + '/' + enterIso, rgba: [200, 200, 200, 255] },
+                            { interval: enterIso + '/' + exitIso,  rgba: [248, 81, 73, 255] },
+                            { interval: exitIso  + '/' + endIso,   rgba: [200, 200, 200, 255] }
+                        ],
+                        pixelSize: [
+                            { interval: startIso + '/' + enterIso, number: 7 },
+                            { interval: enterIso + '/' + exitIso,  number: 14 },
+                            { interval: exitIso  + '/' + endIso,   number: 7 }
+                        ],
+                        outlineColor: { rgba: [0, 0, 0, 200] },
+                        outlineWidth: 1,
+                        show: true
+                    },
+                    label: {
+                        text: r.NAME,
+                        font: '11px sans-serif',
+                        fillColor: { rgba: [255, 220, 100, 255] },
+                        outlineColor: { rgba: [0, 0, 0, 255] },
+                        outlineWidth: 2,
+                        style: 'FILL_AND_OUTLINE',
+                        pixelOffset: { cartesian2: [0, -18] },
+                        show: true
+                    }
+                }
+            ];
+
+            // Remove previous track
+            clearDebrisTrack(false);
+
+            // Load into Cesium
+            _debrisTrackDS = await Cesium.CzmlDataSource.load(czml);
+            viewer.dataSources.add(_debrisTrackDS);
+
+            // Set clock to entry time and start animating
+            viewer.clock.currentTime = Cesium.JulianDate.fromIso8601(enterIso);
+            viewer.clock.multiplier  = 60;
+            viewer.clock.shouldAnimate = true;
+            viewer.clock.clockRange  = Cesium.ClockRange.LOOP_STOP;
+            viewer.clock.startTime   = Cesium.JulianDate.fromIso8601(startIso);
+            viewer.clock.stopTime    = Cesium.JulianDate.fromIso8601(endIso);
+
+            // Fly camera to the satellite at entry time
+            const pointEntity = _debrisTrackDS.entities.getById(pointId);
+            if (pointEntity) {
+                viewer.flyTo(pointEntity, {
+                    duration: 2,
+                    offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-45), 3000000)
+                });
+            }
+
+            if (btn) { btn.style.display = 'inline-block'; btn.textContent = '✕ Clear Track'; }
+
+        } catch (err) {
+            console.error('Track error:', err);
+            alert('Error computing track: ' + err.message);
+            if (btn) btn.style.display = 'none';
+        }
+    }
+
+    function clearDebrisTrack(resetBtn) {
+        if (_debrisTrackDS) {
+            viewer.dataSources.remove(_debrisTrackDS, true);
+            _debrisTrackDS = null;
+        }
+        if (resetBtn !== false) {
+            const btn = document.getElementById('dpClearTrackBtn');
+            if (btn) btn.style.display = 'none';
+        }
     }
 
     function dpRenderGantt() {
